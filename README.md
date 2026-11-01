@@ -110,7 +110,7 @@ Commit the migration and the regenerated types together.
 | `make db-query sql="..."` / `file=<path>` | Run a SQL query on prod (for reads and debugging)            |
 | `make db-advisors`                        | Security and performance checks on prod                      |
 
-**Claude Code** skills live in `.claude/skills/` (gitignored, shared privately) for these workflows: `supabase-setup`, `supabase-migration-create`, `supabase-migration-apply` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
+**Claude Code** has project skills in `.claude/skills/` for these workflows: `supabase-setup`, `supabase-migration-create`, `supabase-migration-apply` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
 
 ## CI
 
