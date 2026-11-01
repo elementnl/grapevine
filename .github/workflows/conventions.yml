@@ -1,0 +1,39 @@
+name: Conventions
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conventions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # Title and branch come from the PR author, so they are passed through env and
+      # never interpolated into the script (prevents shell injection from fork PRs).
+      - name: PR title is a conventional commit
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|chore|docs|refactor|test|ci|perf|build|revert)(\([a-z0-9-]+\))?!?: .+'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::PR title \"$TITLE\" must look like 'type(scope): summary', e.g. 'feat(assignment): weight nodes by height'. Types: feat fix chore docs refactor test ci perf build revert."
+            exit 1
+          fi
+
+      - name: Branch is name/feature
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ "$BRANCH" == dependabot/* ]]; then exit 0; fi
+          pattern='^[a-z0-9-]+/[a-z0-9._-]+$'
+          if [[ ! "$BRANCH" =~ $pattern ]]; then
+            echo "::error::Branch \"$BRANCH\" must look like 'name/feature', e.g. 'varun/guess-clustering' (lowercase, hyphens)."
+            exit 1
+          fi
