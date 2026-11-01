@@ -110,11 +110,33 @@ Commit the migration and the regenerated types together.
 | `make db-query sql="..."` / `file=<path>` | Run a SQL query on prod (for reads and debugging)            |
 | `make db-advisors`                        | Security and performance checks on prod                      |
 
-**Claude Code** skills live in `.claude/skills/` (gitignored, shared privately) for these workflows: `supabase-setup`, `supabase-migration-create`, `supabase-migration-apply` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
+**Claude Code** has project skills in `.claude/skills/` for these workflows: `supabase-setup`, `supabase-migration-create`, `supabase-migration-apply` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
+
+## Conventions
+
+- **Branches:** `name/feature`, lowercase with hyphens, e.g. `varun/guess-clustering`.
+- **Commits and PR titles:** [Conventional Commits](https://www.conventionalcommits.org), `type(scope): summary` with an optional scope.
+
+  | Type       | For                                     |
+  | ---------- | --------------------------------------- |
+  | `feat`     | A new feature                           |
+  | `fix`      | A bug fix                               |
+  | `chore`    | Maintenance, dependencies, config       |
+  | `docs`     | Documentation only                      |
+  | `refactor` | Code change that isn't a feature or fix |
+  | `test`     | Adding or fixing tests                  |
+  | `ci`       | CI workflows                            |
+  | `perf`     | Performance                             |
+  | `build`    | Build system or tooling                 |
+  | `revert`   | Reverting a previous commit             |
+
+  Add `!` for breaking changes: `feat(api)!: rename turns endpoint`.
+
+- **Merging:** squash merge only, so the PR title becomes the commit on `main`. The **Conventions** workflow fails a PR whose title or branch name doesn't match.
 
 ## CI
 
-GitHub Actions runs one workflow per check on every pull request and push to `main`: **Lint**, **Format**, **Typecheck**, **Test** and **Build**. Each calls the matching `make` target, so `make check` locally reproduces CI. Dependabot opens weekly update PRs for npm packages and GitHub Actions.
+GitHub Actions runs one workflow per check on every pull request and push to `main`: **Lint**, **Format**, **Typecheck**, **Test** and **Build**. Each calls the matching `make` target, so `make check` locally reproduces CI. A sixth workflow, **Conventions**, checks PR titles and branch names. Dependabot opens weekly update PRs for npm packages and GitHub Actions.
 
 ## Deployment
 
