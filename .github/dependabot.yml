@@ -9,6 +9,10 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Types track the Node 22 runtime (.nvmrc); bump them by hand with Node.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
   - package-ecosystem: github-actions
     # The shared setup step is a composite action, which "/" alone doesn't scan.
     directories: [/, /.github/actions/setup]
