@@ -1,0 +1,38 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# testing
+/coverage
+
+# env and secrets
+.env*
+*.pem
+
+# vercel
+.vercel
+
+# supabase local state
+supabase/.branches
+supabase/.temp
+
+# logs
+npm-debug.log*
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local tool state
+.impeccable/
+.claude/
+
+# design docs, shared privately
+/docs/
