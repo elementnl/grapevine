@@ -87,5 +87,8 @@ Anyone can read every file and every commit, forever. So:
 
 ## Git
 
-- Branch from `main`; open a PR; CI must pass before merging.
+- Branch from `main` as `name/feature`: lowercase, hyphens, e.g. `varun/guess-clustering`.
+- Commit messages and PR titles use Conventional Commits: `type(scope): summary`, scope optional, summary lowercase and imperative. Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci`, `perf`, `build`, `revert`; add `!` after the type or scope for breaking changes. Examples: `feat(assignment): weight nodes by height`, `fix(canvas): stop strokes past the edge`, `chore(deps): bump next`.
+- PRs are squash-merged, so the PR title becomes the commit on `main`. The Conventions workflow checks the title and branch name on every PR.
+- CI must pass before merging.
 - Don't commit or push unless asked.
