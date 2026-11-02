@@ -8,16 +8,21 @@ A daily browser game where the whole internet plays one game of picture telephon
 
 - [Next.js](https://nextjs.org) (App Router) and TypeScript, deployed on [Vercel](https://vercel.com)
 - [Tailwind CSS](https://tailwindcss.com) v4
-- [Supabase](https://supabase.com) Postgres with pgvector (not wired up yet)
+- [Supabase](https://supabase.com) Postgres (MVP game persistence wired up; pgvector and the daily-tree schema are planned)
 - ESLint, Prettier and Vitest
 
 ## Getting started
 
-Requires Node 22 (see `.nvmrc`) and `make`.
+Requires Node 22 (see `.nvmrc`) and GNU Make. The Makefile works on Windows, macOS and Linux; on Windows, use GNU Make (for example, from Git Bash or WSL).
 
 ```bash
 nvm use
 make install
+```
+
+For the game API, copy `.env.example` to `.env.local` and set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from the Supabase project settings. Keep the service-role key private; it is server-only and must never use a `NEXT_PUBLIC_` prefix. Create the database schema with the migration under `supabase/migrations/` before calling the game API.
+
+```bash
 make dev
 ```
 
@@ -45,6 +50,8 @@ Everything goes through `make`; there are no `npm run` scripts. Run `make` on it
 
 Database targets are listed under [Database](#database).
 
+The homepage is the player-facing route. In development, use **Debug view** to open `/debug`, enter a day and initial prompt, draw two starter drawings, then publish the day. The debug page and its setup API are disabled outside `NODE_ENV=development`; publishing is refused if another day is already live. A setup can be resumed by entering the same date and prompt. Drawings are stored as the spec's 512 × 512 stroke JSON, not image embeddings. This temporary debug view has no authentication and should only be used on a trusted local development server.
+
 To add a dependency, use `npm install <pkg>` (or `npm install -D <pkg>`) and commit the updated `package-lock.json`.
 
 ## Project layout
@@ -53,7 +60,11 @@ To add a dependency, use `npm install <pkg>` (or `npm install -D <pkg>`) and com
 src/
   app/          Routes only: pages, layouts and API route handlers (app/api/)
   components/   Presentational React components; no data fetching or game logic
-  server/       All application logic, server-only
+  server/
+    days/       Day setup and day lifecycle logic
+    drawings/   Drawing data validation
+    health/     Health endpoint logic
+    shared/     API, errors, database and environment helpers
   constants/    Shared constants and tunables
   types/        Shared TypeScript types (database.ts is generated)
 scripts/        Standalone scripts (simulations, bots, one-off tasks)
@@ -61,7 +72,7 @@ supabase/       Supabase CLI config and migrations
 docs/           Design docs (gitignored, shared privately)
 ```
 
-The rule that matters: **logic lives in `src/server`, never in the browser.** Pages and route handlers are thin wrappers that call into `src/server`; components only render what they're given. Every module in `src/server` imports `server-only`, so pulling one into client code fails the build, and ESLint stops `src/components` from importing `src/server`.
+The rule that matters: **logic lives in `src/server`, never in the browser.** Server modules are grouped by feature, with cross-cutting infrastructure in `src/server/shared/`. Pages and route handlers are thin wrappers that call into `src/server`; components only render what they're given. Every module in `src/server` imports `server-only`, so pulling one into client code fails the build, and ESLint stops `src/components` from importing `src/server`.
 
 ## Database
 
