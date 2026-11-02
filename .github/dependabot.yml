@@ -10,7 +10,8 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
   - package-ecosystem: github-actions
-    directory: /
+    # The shared setup step is a composite action, which "/" alone doesn't scan.
+    directories: [/, /.github/actions/setup]
     schedule:
       interval: weekly
     commit-message:
