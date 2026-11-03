@@ -8,7 +8,7 @@ A daily picture-telephone game that grows one shared tree per day. The design li
 
 Always use `make`. Never `npm run`, `npx` or calling binaries directly.
 
-- `make dev`: dev server at http://localhost:3000
+- `make dev`: dev server at http://localhost:7300 (`PORT=` to override)
 - `make check`: format-check, lint, typecheck, test and build, exactly as CI runs them
 - `make format` / `make lint-fix`: fix formatting and auto-fixable lint errors
 - `make test`: Vitest, once

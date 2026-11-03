@@ -44,4 +44,39 @@ describe("drawing validation", () => {
       }),
     ).toBe(true);
   });
+
+  it("accepts palette colours and single-point fills", () => {
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [
+          { w: 1, erase: false, c: 4, pts: [12, 14, 0, 3, 5, 10] },
+          { w: 1, erase: false, c: 24, fill: true, pts: [100, 100, 20] },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects unknown colours and malformed fills", () => {
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [{ w: 1, erase: false, c: 25, pts: [12, 14, 0] }],
+      }),
+    ).toBe(false);
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [
+          { w: 1, erase: false, fill: true, pts: [12, 14, 0, 1, 1, 5] },
+        ],
+      }),
+    ).toBe(false);
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [{ w: 1, erase: false, fill: true }],
+      }),
+    ).toBe(false);
+  });
 });

@@ -1,6 +1,8 @@
 # Every task in this repo runs through make. Run `make` to list targets.
 
 .DEFAULT_GOAL := help
+# Off the common 3000 so it doesn't fight other local projects.
+PORT ?= 7300
 .PHONY: help install dev build start lint lint-fix format format-check typecheck test test-watch check clean \
 	db-login db-link db-migration db-status db-push-dry db-push db-repair db-types db-query db-advisors
 
@@ -10,14 +12,14 @@ help: ## List all targets
 install: ## Install dependencies exactly as locked
 	npm ci
 
-dev: ## Start the dev server on http://localhost:3000
-	npm exec -- next dev
+dev: ## Start the dev server on http://localhost:7300 (override with PORT=)
+	npm exec -- next dev --port $(PORT)
 
 build: ## Production build
 	npm exec -- next build
 
-start: ## Serve the production build (run `make build` first)
-	npm exec -- next start
+start: ## Serve the production build on port 7300 (run `make build` first)
+	npm exec -- next start --port $(PORT)
 
 lint: ## Lint with ESLint
 	npm exec -- eslint .

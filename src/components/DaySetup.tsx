@@ -1,15 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { type FormEvent, useState } from "react";
 
 import { DrawingCanvas } from "@/components/DrawingCanvas";
+import { STARTER_DRAWING_COUNT } from "@/constants/game";
 import type { DrawingData } from "@/types/drawing";
 
 type DaySetupState = {
   date: string;
   initialPrompt: string;
   starterCount: number;
-  status: "scheduled" | "live";
+  status: "scheduled" | "live" | "frozen";
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -71,7 +73,7 @@ export function DaySetup() {
         result.initialPrompt !== initialPrompt.trim() ||
         typeof result.starterCount !== "number" ||
         result.starterCount < 0 ||
-        result.starterCount > 2 ||
+        result.starterCount > STARTER_DRAWING_COUNT ||
         (result.status !== "scheduled" && result.status !== "live")
       ) {
         throw new Error("The server returned an invalid day setup.");
@@ -93,7 +95,7 @@ export function DaySetup() {
     }
   };
 
-  const saveStarter = async (starterIndex: 1 | 2, drawing: DrawingData) => {
+  const saveStarter = async (starterIndex: number, drawing: DrawingData) => {
     if (!setup) {
       throw new Error("Create the day before saving starter drawings.");
     }
@@ -160,7 +162,37 @@ export function DaySetup() {
     }
   };
 
-  const starterIndex = setup?.starterCount === 0 ? 1 : 2;
+  const freezeDay = async () => {
+    if (!setup) {
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await postDebugAction({
+        action: "freeze",
+        date: setup.date,
+      });
+      if (
+        !isRecord(result) ||
+        result.date !== setup.date ||
+        result.status !== "frozen"
+      ) {
+        throw new Error("The server returned an invalid freeze result.");
+      }
+
+      setSetup({ ...setup, status: "frozen" });
+    } catch (reason) {
+      setError(
+        reason instanceof Error ? reason.message : "Could not freeze the day.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const starterIndex = (setup?.starterCount ?? 0) + 1;
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-8">
@@ -172,8 +204,8 @@ export function DaySetup() {
           Set up a game day
         </h1>
         <p className="text-center text-sm text-neutral-600">
-          Choose the initial prompt, draw two starters, and publish the day for
-          players.
+          Choose the secret prompt, draw the starter, and publish the game.
+          Freeze it when you&apos;re done to start a new one.
         </p>
       </header>
 
@@ -216,40 +248,70 @@ export function DaySetup() {
         <div className="flex flex-col gap-6">
           <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-medium text-neutral-500">
-              {setup.status === "live" ? "Live day" : "Scheduled day"}
+              {setup.status === "live"
+                ? "Live day"
+                : setup.status === "frozen"
+                  ? "Frozen day"
+                  : "Scheduled day"}
             </p>
             <p className="mt-1 text-sm text-neutral-600">{setup.date}</p>
             <h2 className="mt-2 text-xl font-semibold">
               {setup.initialPrompt}
             </h2>
             <p className="mt-2 text-sm text-neutral-600">
-              {setup.starterCount} of 2 starter drawings saved
+              {setup.starterCount} of {STARTER_DRAWING_COUNT} starter drawings
+              saved
             </p>
           </div>
 
-          {setup.status === "scheduled" && setup.starterCount < 2 && (
-            <DrawingCanvas
-              key={`${setup.date}-${starterIndex}`}
-              onSubmit={(drawing) => saveStarter(starterIndex, drawing)}
-              prompt={setup.initialPrompt}
-              submitLabel={`Save starter drawing ${starterIndex}`}
-            />
-          )}
+          {setup.status === "scheduled" &&
+            setup.starterCount < STARTER_DRAWING_COUNT && (
+              <DrawingCanvas
+                key={`${setup.date}-${starterIndex}`}
+                onSubmit={(drawing) => saveStarter(starterIndex, drawing)}
+                prompt={setup.initialPrompt}
+                submitLabel="Save starter drawing"
+              />
+            )}
 
-          {setup.status === "scheduled" && setup.starterCount === 2 && (
-            <button
-              className="self-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800 disabled:cursor-wait disabled:bg-neutral-400"
-              disabled={busy}
-              onClick={publishDay}
-              type="button"
-            >
-              {busy ? "Publishing…" : "Publish day for all players"}
-            </button>
-          )}
+          {setup.status === "scheduled" &&
+            setup.starterCount === STARTER_DRAWING_COUNT && (
+              <button
+                className="self-center rounded-lg bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800 disabled:cursor-wait disabled:bg-neutral-400"
+                disabled={busy}
+                onClick={publishDay}
+                type="button"
+              >
+                {busy ? "Publishing…" : "Publish day for all players"}
+              </button>
+            )}
 
           {setup.status === "live" && (
-            <p className="rounded-lg bg-emerald-50 p-4 text-center text-sm font-medium text-emerald-800">
-              The game is live for {setup.date}.
+            <div className="flex flex-col items-center gap-4">
+              <p className="w-full rounded-lg bg-emerald-50 p-4 text-center text-sm font-medium text-emerald-800">
+                The game is live for {setup.date}.{" "}
+                <Link className="underline" href="/">
+                  Play it
+                </Link>
+              </p>
+              <button
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-wait disabled:text-neutral-400"
+                disabled={busy}
+                onClick={freezeDay}
+                type="button"
+              >
+                {busy ? "Freezing…" : "Freeze day and end the game"}
+              </button>
+            </div>
+          )}
+
+          {setup.status === "frozen" && (
+            <p className="rounded-lg bg-neutral-100 p-4 text-center text-sm font-medium text-neutral-700">
+              This game is over.{" "}
+              <Link className="underline" href="/tree">
+                View the tree
+              </Link>
+              . Use a new date to start another game.
             </p>
           )}
         </div>

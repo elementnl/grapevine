@@ -26,7 +26,7 @@ For the game API, copy `.env.example` to `.env.local` and set `SUPABASE_URL` and
 make dev
 ```
 
-The app runs at http://localhost:3000.
+The app runs at http://localhost:7300. Use `make dev PORT=<port>` to pick another.
 
 ## Commands
 
@@ -50,7 +50,17 @@ Everything goes through `make`; there are no `npm run` scripts. Run `make` on it
 
 Database targets are listed under [Database](#database).
 
-The homepage is the player-facing route. In development, use **Debug view** to open `/debug`, enter a day and initial prompt, draw two starter drawings, then publish the day. The debug page and its setup API are disabled outside `NODE_ENV=development`; publishing is refused if another day is already live. A setup can be resumed by entering the same date and prompt. Drawings are stored as the spec's 512 × 512 stroke JSON, not image embeddings. This temporary debug view has no authentication and should only be used on a trusted local development server.
+The homepage is the player-facing route: the MVP is two-player telephone along a single line. Whoever didn't make the latest node guesses it (a drawing) or draws it (a guess), and the other waits. `/tree` is a pannable, zoomable whiteboard of the whole game: the secret prompt (behind a reveal) at the top, with hand-drawn arrows down through every drawing and guess. Drag or scroll to move, pinch or ctrl-scroll to zoom; arrow keys, `+`, `-` and `0` work too.
+
+To test, open **Debug** (`/debug`). It has three sections:
+
+- **Games:** the game being played now, then every game with its status (Live, Ended, Not started). End, resume, delete or open any of them. A game's page lets you rename its prompt, see its tree, and delete any drawing or guess (along with everything after it).
+- **New game:** write a secret prompt, draw it and start. Whatever is live ends, and the new game takes the next free date. Scheduling a game on a specific date is under the collapsed section there.
+- **Players:** everyone who has played, with delete, and **Become a new player** to reset your own identity.
+
+The **Playing as Player A / Player B** switcher in the top bar lets one person play both sides in one browser; two people on two devices can each pick a side, or just play with their own cookie. `/tree?date=YYYY-MM-DD` opens a specific game's tree.
+
+Debug tools are on in `make dev` and off in production builds. To use them on a Vercel preview, set `GRAPEVINE_DEBUG=1` for the Preview environment only, never Production: anyone who can open the deploy can end and start games. Drawings are stored as the spec's 512 × 512 stroke JSON, not image embeddings. This temporary debug view has no authentication and should only be used on a trusted local development server.
 
 To add a dependency, use `npm install <pkg>` (or `npm install -D <pkg>`) and commit the updated `package-lock.json`.
 

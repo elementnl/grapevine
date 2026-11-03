@@ -1,21 +1,15 @@
 import "server-only";
 
+import { STARTER_DRAWING_COUNT } from "@/constants/game";
+import { drawingToJson } from "@/server/drawings/validation";
 import { GameError } from "@/server/shared/error";
 import { getSupabaseAdminClient } from "@/server/shared/supabase";
 import type { Json } from "@/types/database";
 import type { DrawingData } from "@/types/drawing";
-import type { DaySetupAction } from "@/server/days/setup-validation";
-
-function drawingToJson(drawing: DrawingData): Json {
-  return {
-    v: 1,
-    strokes: drawing.strokes.map(({ erase, pts, w }) => ({
-      erase,
-      pts,
-      w,
-    })),
-  };
-}
+import {
+  type DaySetupAction,
+  nextGameDate,
+} from "@/server/days/setup-validation";
 
 function matchesDrawing(stored: Json, candidate: DrawingData): boolean {
   if (
@@ -41,6 +35,8 @@ function matchesDrawing(stored: Json, candidate: DrawingData): boolean {
       !Array.isArray(stroke) &&
       stroke.w === expected.w &&
       stroke.erase === expected.erase &&
+      stroke.c === expected.c &&
+      stroke.fill === expected.fill &&
       Array.isArray(stroke.pts) &&
       stroke.pts.length === expected.pts.length &&
       stroke.pts.every(
@@ -57,7 +53,7 @@ async function getStarterDrawings(date: string) {
     .eq("day", date)
     .is("parent_guess_id", null)
     .order("id", { ascending: true })
-    .limit(3);
+    .limit(STARTER_DRAWING_COUNT + 1);
 
   if (error) {
     throw new Error(`Supabase request failed: ${error.message}`);
@@ -97,9 +93,9 @@ async function createScheduledDay(
     }
 
     const starters = await getStarterDrawings(date);
-    if (starters.length > 2) {
+    if (starters.length > STARTER_DRAWING_COUNT) {
       throw new GameError(
-        "This day has more than two starter drawings and cannot be resumed.",
+        "This day has too many starter drawings and cannot be resumed.",
         409,
         "invalid_starter_count",
       );
@@ -128,8 +124,9 @@ async function createScheduledDay(
 
 async function saveStarterDrawing(
   date: string,
-  starterIndex: 1 | 2,
+  starterIndex: number,
   drawing: DrawingData,
+  playerId: string,
 ): Promise<{ date: string; starterCount: number }> {
   const client = getSupabaseAdminClient();
   const { data: day, error: dayError } = await client
@@ -150,9 +147,9 @@ async function saveStarterDrawing(
   }
 
   const starters = await getStarterDrawings(date);
-  if (starters.length > 2) {
+  if (starters.length > STARTER_DRAWING_COUNT) {
     throw new GameError(
-      "This day already has more than two starter drawings.",
+      "This day already has too many starter drawings.",
       409,
       "invalid_starter_count",
     );
@@ -181,7 +178,8 @@ async function saveStarterDrawing(
   const { error: insertError } = await client.from("drawings").insert({
     day: date,
     parent_guess_id: null,
-    player_id: null,
+    // The starter belongs to whoever drew it, so they aren't asked to guess it.
+    player_id: playerId,
     status: "visible",
     strokes: drawingToJson(drawing),
   });
@@ -216,11 +214,11 @@ async function publishDay(
 
   const starters = await getStarterDrawings(date);
   if (
-    starters.length !== 2 ||
+    starters.length !== STARTER_DRAWING_COUNT ||
     starters.some((starter) => starter.status !== "visible")
   ) {
     throw new GameError(
-      "Save exactly two starter drawings before publishing the day.",
+      "Save the starter drawing before publishing the day.",
       409,
       "starter_drawings_incomplete",
     );
@@ -266,7 +264,65 @@ async function publishDay(
   return { date, status: "live" };
 }
 
-export function runDaySetupAction(action: DaySetupAction) {
+async function freezeDay(
+  date: string,
+): Promise<{ date: string; status: "frozen" }> {
+  const { data: frozenDay, error } = await getSupabaseAdminClient()
+    .from("days")
+    .update({ frozen_at: new Date().toISOString(), status: "frozen" })
+    .eq("date", date)
+    .eq("status", "live")
+    .select("date")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Supabase request failed: ${error.message}`);
+  }
+  if (!frozenDay) {
+    throw new GameError("Only a live day can be frozen.", 409, "day_not_live");
+  }
+
+  return { date, status: "frozen" };
+}
+
+async function freezeLiveDays(): Promise<void> {
+  const { error } = await getSupabaseAdminClient()
+    .from("days")
+    .update({ frozen_at: new Date().toISOString(), status: "frozen" })
+    .eq("status", "live");
+
+  if (error) {
+    throw new Error(`Supabase request failed: ${error.message}`);
+  }
+}
+
+// One step for testing: end whatever is live and start a fresh game on a free date.
+async function startGame(
+  initialPrompt: string,
+  drawing: DrawingData,
+  playerId: string,
+): Promise<{ date: string; status: "live" }> {
+  const { data: latestDay, error } = await getSupabaseAdminClient()
+    .from("days")
+    .select("date")
+    .order("date", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Supabase request failed: ${error.message}`);
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const date = nextGameDate(today, latestDay?.date ?? null);
+  // ponytail: not atomic; a failure midway leaves a scheduled day behind, which is harmless.
+  await createScheduledDay(date, initialPrompt);
+  await saveStarterDrawing(date, 1, drawing, playerId);
+  await freezeLiveDays();
+  return publishDay(date);
+}
+
+export function runDaySetupAction(action: DaySetupAction, playerId: string) {
   switch (action.action) {
     case "create":
       return createScheduledDay(action.date, action.initialPrompt);
@@ -275,8 +331,13 @@ export function runDaySetupAction(action: DaySetupAction) {
         action.date,
         action.starterIndex,
         action.drawing,
+        playerId,
       );
     case "publish":
       return publishDay(action.date);
+    case "freeze":
+      return freezeDay(action.date);
+    case "start":
+      return startGame(action.initialPrompt, action.drawing, playerId);
   }
 }
