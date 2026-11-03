@@ -44,7 +44,6 @@ export function DrawingCanvas({
     const drawing: DrawingData = {
       v: 1,
       strokes: strokesRef.current.map((stroke) => ({
-        c: stroke.c,
         erase: stroke.erase,
         pts: [...stroke.pts],
         w: stroke.w,
@@ -156,9 +155,7 @@ export function DrawingCanvas({
     context.beginPath();
     context.arc(point.x, point.y, 1.5, 0, Math.PI * 2);
     context.fill();
-
     activeStrokeRef.current = {
-      c: 0,
       erase: false,
       pts: [point.x, point.y, timestamp],
       w: 1,

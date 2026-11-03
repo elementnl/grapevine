@@ -20,7 +20,7 @@ nvm use
 make install
 ```
 
-For the game API, copy `.env.example` to `.env.local` and set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from the Supabase project settings. Keep the service-role key private; it is server-only and must never use a `NEXT_PUBLIC_` prefix. Create the database schema with the migration under `supabase/migrations/` before calling the game API.
+For the game API, copy `.env.example` to `.env.local` and set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from the Supabase project settings. Keep the secret key private; it is server-only, bypasses row-level security, and must never use a `NEXT_PUBLIC_` prefix. Create the database schema with the migration under `supabase/migrations/` before calling the game API.
 
 ```bash
 make dev

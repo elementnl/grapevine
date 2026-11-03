@@ -9,8 +9,7 @@ import type { DaySetupAction } from "@/server/days/setup-validation";
 function drawingToJson(drawing: DrawingData): Json {
   return {
     v: 1,
-    strokes: drawing.strokes.map(({ c, erase, pts, w }) => ({
-      c,
+    strokes: drawing.strokes.map(({ erase, pts, w }) => ({
       erase,
       pts,
       w,
@@ -40,7 +39,6 @@ function matchesDrawing(stored: Json, candidate: DrawingData): boolean {
       typeof stroke === "object" &&
       stroke !== null &&
       !Array.isArray(stroke) &&
-      stroke.c === expected.c &&
       stroke.w === expected.w &&
       stroke.erase === expected.erase &&
       Array.isArray(stroke.pts) &&

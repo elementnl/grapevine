@@ -11,7 +11,8 @@ next-env.d.ts
 /coverage
 
 # env and secrets
-.env
+.env*
+!.env.example
 *.pem
 
 # vercel

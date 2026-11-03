@@ -63,7 +63,7 @@ Migration hygiene (non-negotiable, because every migration runs straight on prod
 - **One logical change per migration**, named for what it does (`make db-migration name=add_guess_count_to_nodes`).
 - **Never edit a migration that has been applied** (`make db-status` shows which). Write a new one.
 - **Additive first:** add nullable or defaulted columns, backfill, tighten later. Drops, truncates and data-losing type changes need explicit sign-off.
-- **Enable RLS on every new `public` table.** The app connects only from `src/server` with the service role.
+- **Enable RLS on every new `public` table.** The app connects only from `src/server` with the Supabase secret key, which bypasses RLS.
 - **Schema changes only through migration files.** Never through `make db-query`, the dashboard SQL editor or the Supabase MCP (which is configured read-only).
 - **Never push to prod without the user's explicit yes** for that push. Then commit the regenerated `src/types/database.ts` with the migration.
 - **No real seeds, user data or secrets in migrations.** The repo is public.

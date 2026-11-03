@@ -4,7 +4,7 @@ import { isDrawingData } from "@/server/drawings/validation";
 
 const validDrawing = {
   v: 1,
-  strokes: [{ c: 0, w: 1, erase: false, pts: [12, 14, 0, 3, 5, 10] }],
+  strokes: [{ w: 1, erase: false, pts: [12, 14, 0, 3, 5, 10] }],
 };
 
 describe("drawing validation", () => {
@@ -16,22 +16,22 @@ describe("drawing validation", () => {
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ c: 0, w: 1, erase: false, pts: [512, 14, 0] }],
+        strokes: [{ w: 1, erase: false, pts: [512, 14, 0] }],
       }),
     ).toBe(false);
   });
 
-  it("rejects invalid stroke indexes and non-increasing timestamps", () => {
+  it("rejects invalid pen sizes and non-increasing timestamps", () => {
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ c: 0, w: 3, erase: false, pts: [12, 14, 0] }],
+        strokes: [{ w: 3, erase: false, pts: [12, 14, 0] }],
       }),
     ).toBe(false);
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ c: 0, w: 1, erase: false, pts: [12, 14, 0, 1, 1, 0] }],
+        strokes: [{ w: 1, erase: false, pts: [12, 14, 0, 1, 1, 0] }],
       }),
     ).toBe(false);
   });
@@ -40,7 +40,7 @@ describe("drawing validation", () => {
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ c: 0, w: 1, erase: false, pts: [12, 14, 0, 1, 1, 90_001] }],
+        strokes: [{ w: 1, erase: false, pts: [12, 14, 0, 1, 1, 90_001] }],
       }),
     ).toBe(true);
   });

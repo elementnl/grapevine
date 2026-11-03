@@ -1,10 +1,6 @@
 import "server-only";
 
-import {
-  DRAWING_SIZE,
-  MAX_DRAWING_PALETTE_INDEX,
-  MAX_DRAWING_POINTS,
-} from "@/constants/drawing";
+import { DRAWING_SIZE, MAX_DRAWING_POINTS } from "@/constants/drawing";
 import type { DrawingData } from "@/types/drawing";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -35,7 +31,6 @@ export function isDrawingData(value: unknown): value is DrawingData {
   for (const stroke of value.strokes) {
     if (
       !isRecord(stroke) ||
-      !isIntegerInRange(stroke.c, 0, MAX_DRAWING_PALETTE_INDEX) ||
       !isIntegerInRange(stroke.w, 0, 2) ||
       typeof stroke.erase !== "boolean" ||
       !Array.isArray(stroke.pts) ||

@@ -7,7 +7,7 @@ import {
 
 const validDrawing = {
   v: 1,
-  strokes: [{ c: 0, w: 1, erase: false, pts: [12, 14, 0] }],
+  strokes: [{ w: 1, erase: false, pts: [12, 14, 0] }],
 };
 
 describe("day setup validation", () => {
