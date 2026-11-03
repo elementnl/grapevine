@@ -1,8 +1,27 @@
 "use client";
 
-import { type PointerEvent, useCallback, useRef, useState } from "react";
+import {
+  type PointerEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
-import { DRAWING_SIZE, MAX_DRAWING_POINTS } from "@/constants/drawing";
+import {
+  paintDrawing,
+  paintFill,
+  strokeColor,
+  strokeWidth,
+} from "@/components/paint-drawing";
+import {
+  DRAWING_COLORS,
+  DRAWING_SIZE,
+  ERASER_WIDTH_INDEX,
+  MAX_DRAWING_POINTS,
+  PEN_WIDTH_INDEX,
+} from "@/constants/drawing";
 import type { DrawingData, Stroke } from "@/types/drawing";
 
 type DrawingCanvasProps = {
@@ -13,6 +32,104 @@ type DrawingCanvasProps = {
 
 type DrawingPhase = "drawing" | "saving" | "saved" | "error";
 type CanvasPoint = { x: number; y: number };
+type Tool = "pen" | "fill" | "eraser";
+
+const COLOR_NAMES = [
+  "Ink",
+  "Grey",
+  "Light grey",
+  "White",
+  "Red",
+  "Orange",
+  "Amber",
+  "Yellow",
+  "Lime",
+  "Green",
+  "Forest green",
+  "Teal",
+  "Cyan",
+  "Sky blue",
+  "Blue",
+  "Navy",
+  "Indigo",
+  "Grape",
+  "Lilac",
+  "Pink",
+  "Raspberry",
+  "Brown",
+  "Tan",
+  "Peach",
+  "Clay",
+];
+
+function Icon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      aria-hidden
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      viewBox="0 0 24 24"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const icons = {
+  pen: (
+    <Icon>
+      <path d="M4 20l1.2-4.6L16.5 4.1a2 2 0 0 1 2.9 0l.5.5a2 2 0 0 1 0 2.9L8.6 18.8z" />
+      <path d="M14.5 6l3.5 3.5" />
+    </Icon>
+  ),
+  fill: (
+    <Icon>
+      <path d="M5 11l6-6 8 8-6 6a2 2 0 0 1-2.8 0L5 13.8a2 2 0 0 1 0-2.8z" />
+      <path d="M5 12h14" />
+      <path d="M20 16s1.5 2 1.5 3a1.5 1.5 0 0 1-3 0c0-1 1.5-3 1.5-3z" />
+    </Icon>
+  ),
+  eraser: (
+    <Icon>
+      <path d="M7 20h12" />
+      <path d="M4.5 15.5l9.8-9.8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L12 18H7z" />
+      <path d="M9.5 10.5l5 5" />
+    </Icon>
+  ),
+  undo: (
+    <Icon>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h11a5 5 0 0 1 0 10h-3" />
+    </Icon>
+  ),
+  redo: (
+    <Icon>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9a5 5 0 0 0 0 10h3" />
+    </Icon>
+  ),
+  clear: (
+    <Icon>
+      <path d="M4 7h16" />
+      <path d="M9 7V4h6v3" />
+      <path d="M6 7l1 13h10l1-13" />
+    </Icon>
+  ),
+};
+
+const tools: Array<{ tool: Tool; label: string }> = [
+  { tool: "pen", label: "Pen" },
+  { tool: "fill", label: "Paint bucket" },
+  { tool: "eraser", label: "Eraser" },
+];
+
+function countPoints(strokes: Stroke[]): number {
+  return strokes.reduce((sum, stroke) => sum + stroke.pts.length / 3, 0);
+}
 
 export function DrawingCanvas({
   onSubmit,
@@ -21,7 +138,10 @@ export function DrawingCanvas({
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const startedAtRef = useRef<number | null>(null);
+  // Undo history: each entry is the whole list of strokes at that moment.
   const strokesRef = useRef<Stroke[]>([]);
+  const pastRef = useRef<Stroke[][]>([]);
+  const futureRef = useRef<Stroke[][]>([]);
   const activeStrokeRef = useRef<Stroke | null>(null);
   const previousPointRef = useRef<CanvasPoint | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
@@ -29,8 +149,98 @@ export function DrawingCanvas({
   const lastTimestampRef = useRef(-1);
   const savingRef = useRef(false);
   const [phase, setPhase] = useState<DrawingPhase>("drawing");
-  const [hasDrawing, setHasDrawing] = useState(false);
+  const [tool, setTool] = useState<Tool>("pen");
+  const [color, setColor] = useState(0);
+  // What the toolbar needs from the history refs, mirrored for rendering.
+  const [history, setHistory] = useState({
+    canUndo: false,
+    canRedo: false,
+    hasDrawing: false,
+  });
   const [message, setMessage] = useState<string | null>(null);
+
+  const getContext = () =>
+    canvasRef.current?.getContext("2d", { willReadFrequently: true }) ?? null;
+
+  const repaint = useCallback(() => {
+    const context = canvasRef.current?.getContext("2d", {
+      willReadFrequently: true,
+    });
+    if (context) {
+      paintDrawing(context, strokesRef.current);
+    }
+  }, []);
+
+  // The bucket reads pixels, so the board starts as solid white, not transparent.
+  useEffect(repaint, [repaint]);
+
+  const syncHistory = () =>
+    setHistory({
+      canUndo: pastRef.current.length > 0,
+      canRedo: futureRef.current.length > 0,
+      hasDrawing: strokesRef.current.length > 0,
+    });
+
+  const commit = (next: Stroke[]) => {
+    pastRef.current.push(strokesRef.current);
+    strokesRef.current = next;
+    futureRef.current = [];
+    pointCountRef.current = countPoints(next);
+    syncHistory();
+  };
+
+  const restore = (from: Stroke[][], to: Stroke[][]) => {
+    const previous = from.pop();
+    if (!previous || phase !== "drawing") {
+      return;
+    }
+    to.push(strokesRef.current);
+    strokesRef.current = previous;
+    pointCountRef.current = countPoints(previous);
+    syncHistory();
+    repaint();
+  };
+  const undo = () => restore(pastRef.current, futureRef.current);
+  const redo = () => restore(futureRef.current, pastRef.current);
+
+  const clearBoard = () => {
+    if (strokesRef.current.length === 0 || phase !== "drawing") {
+      return;
+    }
+    commit([]);
+    repaint();
+  };
+
+  // Cmd/Ctrl+Z to undo, with Shift (or Ctrl+Y) to redo; not while typing.
+  const shortcutsRef = useRef({ undo, redo });
+  useEffect(() => {
+    shortcutsRef.current = { undo, redo };
+  });
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        !(event.metaKey || event.ctrlKey) ||
+        target?.closest("input, textarea, [contenteditable]")
+      ) {
+        return;
+      }
+      const key = event.key.toLowerCase();
+      if (key === "z") {
+        event.preventDefault();
+        if (event.shiftKey) {
+          shortcutsRef.current.redo();
+        } else {
+          shortcutsRef.current.undo();
+        }
+      } else if (key === "y") {
+        event.preventDefault();
+        shortcutsRef.current.redo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const submitDrawing = useCallback(async () => {
     if (savingRef.current || strokesRef.current.length === 0) {
@@ -44,9 +254,8 @@ export function DrawingCanvas({
     const drawing: DrawingData = {
       v: 1,
       strokes: strokesRef.current.map((stroke) => ({
-        erase: stroke.erase,
+        ...stroke,
         pts: [...stroke.pts],
-        w: stroke.w,
       })),
     };
 
@@ -66,10 +275,14 @@ export function DrawingCanvas({
   }, [onSubmit]);
 
   const finishStroke = useCallback(() => {
-    if (activeStrokeRef.current) {
-      strokesRef.current.push(activeStrokeRef.current);
+    const stroke = activeStrokeRef.current;
+    if (stroke) {
       activeStrokeRef.current = null;
       previousPointRef.current = null;
+      pastRef.current.push(strokesRef.current);
+      strokesRef.current = [...strokesRef.current, stroke];
+      futureRef.current = [];
+      syncHistory();
     }
     activePointerIdRef.current = null;
   }, []);
@@ -88,7 +301,7 @@ export function DrawingCanvas({
     return timestamp;
   };
 
-  const getCanvasPoint = (event: PointerEvent<HTMLCanvasElement>) => {
+  const getCanvasPoint = (event: PointerEvent<HTMLDivElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) {
       return null;
@@ -117,7 +330,7 @@ export function DrawingCanvas({
     };
   };
 
-  const handlePointerDown = (event: PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (
       phase !== "drawing" ||
       activePointerIdRef.current !== null ||
@@ -127,51 +340,84 @@ export function DrawingCanvas({
     }
 
     const point = getCanvasPoint(event);
-    const startedAt = startedAtRef.current;
     if (!point) {
       return;
     }
-    if (startedAt === null) {
+    if (startedAtRef.current === null) {
       startedAtRef.current = performance.now();
     }
 
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) {
+    const context = getContext();
+    const timestamp = getNextTimestamp();
+    if (!context || timestamp === null) {
       setMessage("Your browser could not start the drawing canvas.");
       return;
     }
+    setMessage(null);
 
-    activePointerIdRef.current = event.pointerId;
-    canvas.setPointerCapture(event.pointerId);
-    const timestamp = getNextTimestamp();
-    if (timestamp === null) {
-      activePointerIdRef.current = null;
-      setMessage("Your browser could not timestamp the drawing.");
+    if (tool === "fill") {
+      // A fill picks the area under the cursor, so a click in the margin
+      // around the board would land on the edge pixel; ignore it instead.
+      const bounds = canvasRef.current?.getBoundingClientRect();
+      if (
+        !bounds ||
+        event.clientX < bounds.left ||
+        event.clientX > bounds.right ||
+        event.clientY < bounds.top ||
+        event.clientY > bounds.bottom
+      ) {
+        return;
+      }
+      const fill: Stroke = {
+        erase: false,
+        fill: true,
+        pts: [point.x, point.y, timestamp],
+        w: PEN_WIDTH_INDEX,
+        c: color,
+      };
+      paintFill(context, point.x, point.y, strokeColor(fill));
+      commit([...strokesRef.current, fill]);
       return;
     }
 
-    context.fillStyle = "#000";
+    const stroke: Stroke =
+      tool === "eraser"
+        ? {
+            erase: true,
+            pts: [point.x, point.y, timestamp],
+            w: ERASER_WIDTH_INDEX,
+          }
+        : {
+            erase: false,
+            pts: [point.x, point.y, timestamp],
+            w: PEN_WIDTH_INDEX,
+            c: color,
+          };
+
+    activePointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    context.fillStyle = strokeColor(stroke);
     context.beginPath();
-    context.arc(point.x, point.y, 1.5, 0, Math.PI * 2);
+    context.arc(point.x, point.y, strokeWidth(stroke) / 2, 0, Math.PI * 2);
     context.fill();
-    activeStrokeRef.current = {
-      erase: false,
-      pts: [point.x, point.y, timestamp],
-      w: 1,
-    };
+    activeStrokeRef.current = stroke;
     previousPointRef.current = point;
     pointCountRef.current += 1;
-    setHasDrawing(true);
-    setMessage(null);
   };
 
-  const handlePointerMove = (event: PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (
       phase !== "drawing" ||
       activePointerIdRef.current !== event.pointerId ||
       !activeStrokeRef.current
     ) {
+      return;
+    }
+
+    // The release can happen where we never hear it (outside the window), so
+    // a mouse move with no button held means the stroke is already over.
+    if (event.pointerType === "mouse" && event.buttons === 0) {
+      finishStroke();
       return;
     }
 
@@ -183,13 +429,8 @@ export function DrawingCanvas({
     const point = getCanvasPoint(event);
     const previousPoint = previousPointRef.current;
     const stroke = activeStrokeRef.current;
-    if (!point || !previousPoint || !stroke) {
-      return;
-    }
-
-    const context = canvasRef.current?.getContext("2d");
-    if (!context) {
-      setMessage("Your browser could not continue the drawing.");
+    const context = getContext();
+    if (!point || !previousPoint || !context) {
       return;
     }
 
@@ -203,8 +444,8 @@ export function DrawingCanvas({
       timestamp,
     );
 
-    context.strokeStyle = "#000";
-    context.lineWidth = 3;
+    context.strokeStyle = strokeColor(stroke);
+    context.lineWidth = strokeWidth(stroke);
     context.lineCap = "round";
     context.lineJoin = "round";
     context.beginPath();
@@ -216,12 +457,19 @@ export function DrawingCanvas({
     pointCountRef.current += 1;
   };
 
-  const handlePointerUp = (event: PointerEvent<HTMLCanvasElement>) => {
+  const handlePointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (activePointerIdRef.current !== event.pointerId) {
       return;
     }
 
     finishStroke();
+  };
+
+  const pickColor = (index: number) => {
+    setColor(index);
+    if (tool === "eraser") {
+      setTool("pen");
+    }
   };
 
   const retrySave = () => {
@@ -233,41 +481,136 @@ export function DrawingCanvas({
     void submitDrawing();
   };
 
+  const locked = phase !== "drawing";
+  const { canUndo, canRedo, hasDrawing } = history;
+
   return (
-    <section className="mx-auto flex w-full max-w-xl flex-col gap-5">
-      <header>
-        <div>
-          <p className="text-sm font-medium text-neutral-500">Draw this</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
-            {prompt}
-          </h1>
-        </div>
+    <section className="mx-auto flex w-full max-w-xl flex-col gap-4">
+      <header className="text-center">
+        <p className="font-hand text-lg text-ink-muted">Draw this</p>
+        <h1 className="font-hand text-4xl font-bold">
+          <span className="marker">{prompt}</span>
+        </h1>
       </header>
 
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
-        <canvas
-          ref={canvasRef}
-          aria-label="Drawing area. Use a mouse, touch, or stylus to draw with the black pen."
-          className="block aspect-square w-full cursor-crosshair touch-none"
-          height={DRAWING_SIZE}
-          onPointerCancel={handlePointerUp}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          width={DRAWING_SIZE}
-        />
+      <div
+        aria-label="Drawing tools"
+        className="flex flex-wrap items-center justify-between gap-2"
+        role="toolbar"
+      >
+        <div className="sketch flex gap-1 p-1">
+          {tools.map((option) => (
+            <button
+              aria-label={option.label}
+              aria-pressed={tool === option.tool}
+              className="btn btn-quiet size-10 p-0"
+              disabled={locked}
+              key={option.tool}
+              onClick={() => setTool(option.tool)}
+              title={option.label}
+              type="button"
+            >
+              {icons[option.tool]}
+            </button>
+          ))}
+        </div>
+        <div className="sketch flex gap-1 p-1">
+          <button
+            aria-label="Undo"
+            className="btn btn-quiet size-10 p-0"
+            disabled={locked || !canUndo}
+            onClick={undo}
+            title="Undo (⌘Z)"
+            type="button"
+          >
+            {icons.undo}
+          </button>
+          <button
+            aria-label="Redo"
+            className="btn btn-quiet size-10 p-0"
+            disabled={locked || !canRedo}
+            onClick={redo}
+            title="Redo (⇧⌘Z)"
+            type="button"
+          >
+            {icons.redo}
+          </button>
+          <button
+            aria-label="Clear the board"
+            className="btn btn-quiet size-10 p-0"
+            disabled={locked || !hasDrawing}
+            onClick={clearBoard}
+            title="Clear the board"
+            type="button"
+          >
+            {icons.clear}
+          </button>
+        </div>
+      </div>
+
+      <div
+        aria-label="Colour"
+        className="flex flex-wrap gap-1.5"
+        role="radiogroup"
+      >
+        {DRAWING_COLORS.map((swatch, index) => (
+          <button
+            aria-checked={color === index}
+            aria-label={COLOR_NAMES[index]}
+            className={`size-7 rounded-full border-2 transition-transform duration-150 ease-out motion-reduce:transition-none ${
+              color === index
+                ? "scale-110 border-ink ring-2 ring-grape ring-offset-2 ring-offset-board"
+                : "border-ink-faint hover:scale-110"
+            }`}
+            disabled={locked}
+            key={swatch}
+            onClick={() => pickColor(index)}
+            role="radio"
+            style={{ backgroundColor: swatch }}
+            title={COLOR_NAMES[index]}
+            type="button"
+          />
+        ))}
+      </div>
+
+      {/*
+        The pointer area reaches a little past the board, so a stroke can start
+        just outside it and still run right up to the edge. It stays narrower
+        than the gap to the swatches above, so it never steals their clicks.
+      */}
+      <div
+        className={`-m-3 touch-none p-3 ${
+          tool === "fill" ? "cursor-cell" : "cursor-crosshair"
+        }`}
+        onLostPointerCapture={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      >
+        <div className="sketch overflow-hidden">
+          <canvas
+            ref={canvasRef}
+            aria-label={`Drawing area. Current tool: ${
+              tools.find((option) => option.tool === tool)?.label
+            }, colour ${COLOR_NAMES[color]}.`}
+            className="block aspect-square w-full"
+            height={DRAWING_SIZE}
+            width={DRAWING_SIZE}
+          />
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-neutral-500">Black pen</p>
-        <p aria-live="polite" className="min-h-5 text-sm text-neutral-600">
+        <p className="font-hand text-ink-muted">No letters or words!</p>
+        <p aria-live="polite" className="min-h-5 text-sm text-ink-muted">
           {phase === "saving" && "Saving drawing…"}
           {phase === "saved" && message}
-          {phase === "error" && message}
+          {(phase === "error" || phase === "drawing") && message}
         </p>
         {phase === "drawing" && (
           <button
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900 disabled:cursor-not-allowed disabled:bg-neutral-300"
+            className="btn btn-primary"
             disabled={!hasDrawing}
             onClick={submitManually}
             type="button"
@@ -276,11 +619,7 @@ export function DrawingCanvas({
           </button>
         )}
         {phase === "error" && (
-          <button
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900"
-            onClick={retrySave}
-            type="button"
-          >
+          <button className="btn" onClick={retrySave} type="button">
             Retry save
           </button>
         )}

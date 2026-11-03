@@ -1,31 +1,48 @@
-import Link from "next/link";
+import { Suspense } from "react";
 
-import { APP_NAME } from "@/constants/app";
+import { PlayerSwitcher } from "@/components/PlayerSwitcher";
+import { PlayTurn } from "@/components/PlayTurn";
+import { TopBar } from "@/components/TopBar";
+import { getDebugPlayerSlot, readPlayerId } from "@/server/players/player";
+import { isDebugEnabled } from "@/server/shared/development-only";
+import { getCurrentTurn } from "@/server/turns/turns";
+
+async function CurrentTurn() {
+  return <PlayTurn turn={await getCurrentTurn(await readPlayerId())} />;
+}
+
+async function CurrentPlayer() {
+  return <PlayerSwitcher slot={getDebugPlayerSlot(await readPlayerId())} />;
+}
 
 export default function Home() {
+  const debug = isDebugEnabled();
+
   return (
     <>
-      <nav className="flex justify-end border-b border-neutral-200 px-4 py-3">
-        {process.env.NODE_ENV === "development" && (
-          <Link
-            className="rounded-lg px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-900"
-            href="/debug"
-          >
-            Debug view
-          </Link>
-        )}
-      </nav>
-      <main className="flex flex-1 flex-col items-center justify-center gap-6 px-4 py-16">
-        <p className="text-sm font-medium tracking-wide text-neutral-500 uppercase">
-          {APP_NAME}
-        </p>
-        <h1 className="text-center text-4xl font-semibold tracking-tight">
-          One prompt. One shared tree.
-        </h1>
-        <p className="max-w-md text-center text-neutral-600">
-          Grapevine is a daily picture-telephone game. The player experience is
-          still being built; check back soon.
-        </p>
+      <TopBar
+        links={[
+          { href: "/tree", label: "See the tree" },
+          ...(debug ? [{ href: "/debug", label: "Debug" }] : []),
+        ]}
+        middle={
+          debug && (
+            <Suspense>
+              <CurrentPlayer />
+            </Suspense>
+          )
+        }
+      />
+      <main className="flex flex-1 flex-col justify-center px-4 pt-4 pb-16">
+        <Suspense
+          fallback={
+            <p className="text-center font-hand text-xl text-ink-muted">
+              Fetching your turn…
+            </p>
+          }
+        >
+          <CurrentTurn />
+        </Suspense>
       </main>
     </>
   );

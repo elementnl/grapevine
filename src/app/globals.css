@@ -2,8 +2,183 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans);
+  --font-hand: var(--font-kalam);
 }
 
-body {
-  @apply bg-white font-sans text-neutral-900;
+@theme {
+  /* A whiteboard, not parchment: near-white with a whisper of the grape hue. */
+  --color-board: oklch(0.988 0.004 300);
+  --color-board-dot: oklch(0.84 0.012 300);
+  --color-ink: oklch(0.24 0.012 300);
+  --color-ink-muted: oklch(0.46 0.02 300);
+  --color-ink-faint: oklch(0.7 0.015 300);
+  --color-grape: oklch(0.5 0.19 300);
+  --color-grape-strong: oklch(0.42 0.19 300);
+  --color-grape-wash: oklch(0.93 0.045 300);
+  --color-vine: oklch(0.88 0.13 125);
+  --color-danger: oklch(0.5 0.18 25);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-board);
+    background-image: radial-gradient(
+      var(--color-board-dot) 1px,
+      transparent 1.2px
+    );
+    background-size: 22px 22px;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  :focus-visible {
+    outline: 2px dashed var(--color-grape);
+    outline-offset: 3px;
+  }
+}
+
+/*
+ * Hand-drawn controls. The uneven radii fake a pen line that never quite
+ * closes evenly; the hard offset shadow lifts the shape off the board.
+ */
+@layer components {
+  .sketch {
+    border: 2px solid var(--color-ink);
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    background-color: white;
+  }
+
+  .sketch-alt {
+    border: 2px solid var(--color-ink);
+    border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+    background-color: white;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    background-color: white;
+    color: var(--color-ink);
+    font-family: var(--font-hand);
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.5rem;
+    box-shadow: 2px 2px 0 var(--color-ink);
+    transition:
+      transform 150ms cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 150ms cubic-bezier(0.22, 1, 0.36, 1);
+    cursor: pointer;
+  }
+
+  .btn:hover:not(:disabled) {
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--color-ink);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 0 0 0 var(--color-ink);
+  }
+
+  .btn:disabled {
+    border-color: var(--color-ink-faint);
+    color: var(--color-ink-faint);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background-color: var(--color-grape);
+    color: white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-grape-strong);
+  }
+
+  .btn-primary:disabled {
+    background-color: var(--color-grape-wash);
+    color: var(--color-ink-muted);
+  }
+
+  .btn-danger {
+    color: var(--color-danger);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background-color: oklch(0.95 0.03 25);
+  }
+
+  .btn-quiet {
+    box-shadow: none;
+    border-color: transparent;
+    background-color: transparent;
+  }
+
+  .btn-quiet:hover:not(:disabled) {
+    border-color: var(--color-ink);
+    box-shadow: 2px 2px 0 var(--color-ink);
+    background-color: white;
+  }
+
+  .btn-quiet[aria-current="page"],
+  .btn-quiet[aria-pressed="true"] {
+    background-color: var(--color-grape-wash);
+    border-color: var(--color-ink);
+  }
+
+  .field {
+    width: 100%;
+    padding: 0.625rem 1rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px;
+    background-color: white;
+    color: var(--color-ink);
+    font-family: var(--font-hand);
+    font-size: 1.25rem;
+  }
+
+  .field::placeholder {
+    color: var(--color-ink-muted);
+  }
+
+  .field:disabled {
+    border-color: var(--color-ink-faint);
+  }
+
+  /* A marker swipe behind a word, like highlighting on a whiteboard. */
+  .marker {
+    background-image: linear-gradient(
+      100deg,
+      transparent 2%,
+      var(--color-vine) 4%,
+      var(--color-vine) 96%,
+      transparent 98%
+    );
+    background-repeat: no-repeat;
+    background-size: 100% 0.55em;
+    background-position: 0 88%;
+    padding: 0 0.15em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+  .btn:hover:not(:disabled),
+  .btn:active:not(:disabled) {
+    transform: none;
+  }
 }

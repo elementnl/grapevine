@@ -1,6 +1,12 @@
 import "server-only";
 
-import { DRAWING_SIZE, MAX_DRAWING_POINTS } from "@/constants/drawing";
+import {
+  BRUSH_WIDTHS,
+  DRAWING_COLORS,
+  DRAWING_SIZE,
+  MAX_DRAWING_POINTS,
+} from "@/constants/drawing";
+import type { Json } from "@/types/database";
 import type { DrawingData } from "@/types/drawing";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -31,11 +37,15 @@ export function isDrawingData(value: unknown): value is DrawingData {
   for (const stroke of value.strokes) {
     if (
       !isRecord(stroke) ||
-      !isIntegerInRange(stroke.w, 0, 2) ||
+      !isIntegerInRange(stroke.w, 0, BRUSH_WIDTHS.length - 1) ||
       typeof stroke.erase !== "boolean" ||
+      (stroke.c !== undefined &&
+        !isIntegerInRange(stroke.c, 0, DRAWING_COLORS.length - 1)) ||
       !Array.isArray(stroke.pts) ||
       stroke.pts.length === 0 ||
-      stroke.pts.length % 3 !== 0
+      stroke.pts.length % 3 !== 0 ||
+      (stroke.fill !== undefined &&
+        (stroke.fill !== true || stroke.erase || stroke.pts.length !== 3))
     ) {
       return false;
     }
@@ -87,4 +97,18 @@ export function isDrawingData(value: unknown): value is DrawingData {
   }
 
   return value.strokes.length > 0;
+}
+
+// Copies only the known fields, so extra keys in a request never reach the database.
+export function drawingToJson(drawing: DrawingData): Json {
+  return {
+    v: 1,
+    strokes: drawing.strokes.map(({ erase, pts, w, c, fill }) => ({
+      erase,
+      pts,
+      w,
+      ...(c === undefined ? {} : { c }),
+      ...(fill ? { fill } : {}),
+    })),
+  };
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isGameDate,
+  nextGameDate,
   parseDaySetupAction,
 } from "@/server/days/setup-validation";
 
@@ -38,25 +39,25 @@ describe("day setup validation", () => {
     ).toBeNull();
   });
 
-  it("accepts the two starter positions only with valid drawings", () => {
+  it("accepts only the single starter position with a valid drawing", () => {
     expect(
       parseDaySetupAction({
         action: "starter",
         date: "2026-11-02",
-        starterIndex: 2,
+        starterIndex: 1,
         drawing: validDrawing,
       }),
     ).toEqual({
       action: "starter",
       date: "2026-11-02",
-      starterIndex: 2,
+      starterIndex: 1,
       drawing: validDrawing,
     });
     expect(
       parseDaySetupAction({
         action: "starter",
         date: "2026-11-02",
-        starterIndex: 3,
+        starterIndex: 2,
         drawing: validDrawing,
       }),
     ).toBeNull();
@@ -66,5 +67,35 @@ describe("day setup validation", () => {
     expect(
       parseDaySetupAction({ action: "publish", date: "2026-11-02" }),
     ).toEqual({ action: "publish", date: "2026-11-02" });
+  });
+
+  it("accepts the freeze action for a valid date", () => {
+    expect(
+      parseDaySetupAction({ action: "freeze", date: "2026-11-02" }),
+    ).toEqual({ action: "freeze", date: "2026-11-02" });
+  });
+
+  it("accepts a quick start with a prompt and a drawing", () => {
+    expect(
+      parseDaySetupAction({
+        action: "start",
+        initialPrompt: " a red balloon ",
+        drawing: validDrawing,
+      }),
+    ).toEqual({
+      action: "start",
+      initialPrompt: "a red balloon",
+      drawing: validDrawing,
+    });
+    expect(
+      parseDaySetupAction({ action: "start", initialPrompt: "a red balloon" }),
+    ).toBeNull();
+  });
+
+  it("picks today or the day after the latest game", () => {
+    expect(nextGameDate("2026-11-03", null)).toBe("2026-11-03");
+    expect(nextGameDate("2026-11-03", "2026-11-01")).toBe("2026-11-03");
+    expect(nextGameDate("2026-11-03", "2026-11-03")).toBe("2026-11-04");
+    expect(nextGameDate("2026-11-03", "2026-12-31")).toBe("2027-01-01");
   });
 });
