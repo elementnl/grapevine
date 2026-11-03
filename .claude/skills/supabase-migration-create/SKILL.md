@@ -50,7 +50,7 @@ Migrations are timestamped SQL files in `supabase/migrations/`. They are the onl
   - Add a column as nullable or with a default; backfill; add `not null` in a later migration.
   - Rename = add new, backfill, switch code, drop old later. Never rename in place while code uses the old name.
   - `drop table`, `drop column`, `truncate`, and type changes that rewrite or lose data need the user's explicit sign-off.
-- **Row Level Security:** enable RLS on every new table in `public`. The app talks to Postgres only from `src/server` using the service role, so tables need no policies for anon users. A table without RLS is readable by anyone holding the public anon key.
+- **Row Level Security:** enable RLS on every new table in `public`. The app talks to Postgres only from `src/server` using `SUPABASE_SECRET_KEY`, so tables need no policies for anon users. A table without RLS is readable by anyone holding the public anon key.
 - **pgvector:** `create extension if not exists vector with schema extensions;` before the first `vector` column.
 - **No real game data.** Never put real seeds, starter drawings or user data in a migration. The repo is public, and seeds are the answers.
 - **No secrets** in SQL files.
