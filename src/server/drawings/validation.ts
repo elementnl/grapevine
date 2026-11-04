@@ -41,9 +41,7 @@ export function isDrawingData(value: unknown): value is DrawingData {
       !isRecord(stroke) ||
       !isIntegerInRange(stroke.w, 0, BRUSH_WIDTHS.length - 1) ||
       typeof stroke.erase !== "boolean" ||
-      (stroke.brush !== undefined && stroke.brush !== "watercolor") ||
-      ((stroke.brush !== undefined || stroke.size !== undefined) &&
-        (stroke.erase || stroke.fill === true)) ||
+      (stroke.size !== undefined && (stroke.erase || stroke.fill === true)) ||
       (stroke.size !== undefined &&
         (typeof stroke.size !== "number" ||
           !Number.isFinite(stroke.size) ||
@@ -113,13 +111,12 @@ export function isDrawingData(value: unknown): value is DrawingData {
 export function drawingToJson(drawing: DrawingData): Json {
   return {
     v: 1,
-    strokes: drawing.strokes.map(({ erase, pts, w, c, fill, brush, size }) => ({
+    strokes: drawing.strokes.map(({ erase, pts, w, c, fill, size }) => ({
       erase,
       pts,
       w,
       ...(c === undefined ? {} : { c }),
       ...(fill ? { fill } : {}),
-      ...(brush === undefined ? {} : { brush }),
       ...(size === undefined ? {} : { size }),
     })),
   };

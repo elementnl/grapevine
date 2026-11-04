@@ -35,7 +35,6 @@ function matchesDrawing(stored: Json, candidate: DrawingData): boolean {
       !Array.isArray(stroke) &&
       stroke.w === expected.w &&
       stroke.erase === expected.erase &&
-      stroke.brush === expected.brush &&
       stroke.size === expected.size &&
       stroke.c === expected.c &&
       stroke.fill === expected.fill &&

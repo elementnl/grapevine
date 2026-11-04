@@ -58,7 +58,7 @@ describe("drawing validation", () => {
     ).toBe(true);
   });
 
-  it("accepts adjustable-width pen and watercolor strokes", () => {
+  it("accepts custom-width pen strokes", () => {
     expect(
       isDrawingData({
         v: 1,
@@ -69,46 +69,35 @@ describe("drawing validation", () => {
             erase: false,
             pts: [12, 14, 0, 3, 5, 10],
           },
-          {
-            w: 1,
-            size: 12,
-            brush: "watercolor",
-            erase: false,
-            pts: [20, 24, 11, 3, 5, 20],
-          },
         ],
       }),
     ).toBe(true);
   });
 
-  it("rejects unsupported brush settings and preserves supported settings", () => {
-    const watercolor: Stroke = {
+  it("rejects invalid custom widths and preserves supported settings", () => {
+    const customWidth: Stroke = {
       w: 1,
       size: 12,
-      brush: "watercolor",
       erase: false,
       pts: [12, 14, 0, 3, 5, 10],
     };
     expect(
-      isDrawingData({ v: 1, strokes: [{ ...watercolor, brush: "unknown" }] }),
-    ).toBe(false);
-    expect(
       isDrawingData({
         v: 1,
-        strokes: [{ ...watercolor, size: 25 }],
+        strokes: [{ ...customWidth, size: 25 }],
       }),
     ).toBe(false);
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ ...watercolor, size: 0.5 }],
+        strokes: [{ ...customWidth, size: 0.5 }],
       }),
     ).toBe(false);
-    expect(drawingToJson({ v: 1, strokes: [watercolor] })).toEqual({
+    expect(drawingToJson({ v: 1, strokes: [customWidth] })).toEqual({
       v: 1,
       strokes: [
         {
-          ...watercolor,
+          ...customWidth,
         },
       ],
     });

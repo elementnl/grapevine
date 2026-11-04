@@ -4,8 +4,7 @@ export type Stroke = {
   erase: boolean;
   pts: number[];
   w: number;
-  // Optional brush settings keep existing v1 drawings readable.
-  brush?: "watercolor";
+  // Optional width in logical canvas pixels; older strokes use `w`.
   size?: number;
   // Index into DRAWING_COLORS.
   c?: number;

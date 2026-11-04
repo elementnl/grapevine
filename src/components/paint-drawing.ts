@@ -151,11 +151,9 @@ export function paintStroke(
   const width = strokeWidth(stroke);
   if (points.length === 1) {
     context.fillStyle = color;
-    context.globalAlpha = stroke.brush === "watercolor" ? 0.32 : 1;
     context.beginPath();
     context.arc(first[0], first[1], width / 2, 0, Math.PI * 2);
     context.fill();
-    context.globalAlpha = 1;
     return;
   }
 
@@ -202,22 +200,6 @@ function paintStrokePath(
   const color = strokeColor(stroke);
   context.lineCap = "round";
   context.lineJoin = "round";
-  if (stroke.brush === "watercolor" && !stroke.erase) {
-    context.strokeStyle = color;
-    context.globalAlpha = 0.2;
-    context.shadowColor = color;
-    context.shadowBlur = width * 0.8;
-    context.lineWidth = width * 1.6;
-    drawPath();
-    context.shadowBlur = 0;
-    context.globalAlpha = 0.16;
-    context.lineWidth = width * 0.75;
-    drawPath();
-    context.shadowColor = "transparent";
-    context.globalAlpha = 1;
-    return;
-  }
-
   context.strokeStyle = color;
   context.lineWidth = width;
   drawPath();
