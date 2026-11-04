@@ -17,3 +17,10 @@ export class SupabaseConfigurationError extends Error {
     this.name = "SupabaseConfigurationError";
   }
 }
+
+export class AuthenticationConfigurationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthenticationConfigurationError";
+  }
+}

@@ -1,24 +1,24 @@
 import { Suspense } from "react";
+import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
+import { io } from "next/cache";
 
 import { DebugNav } from "@/components/DebugNav";
 import { PlayerSwitcher } from "@/components/PlayerSwitcher";
 import { TopBar } from "@/components/TopBar";
+import { signOut } from "@/app/login/actions";
 import { getDebugPlayerSlot, readPlayerId } from "@/server/players/player";
-import { isDebugEnabled } from "@/server/shared/development-only";
+import { getAdminUser } from "@/server/auth/admin";
 
 async function CurrentPlayer() {
   return <PlayerSwitcher slot={getDebugPlayerSlot(await readPlayerId())} />;
 }
 
-export default function DebugLayout({ children }: LayoutProps<"/debug">) {
-  if (!isDebugEnabled()) {
-    return (
-      <main className="flex flex-1 items-center justify-center px-4 py-12">
-        <p className="font-hand text-xl text-ink-muted">
-          The debug view is only available in development.
-        </p>
-      </main>
-    );
+async function AuthenticatedDebugLayout({ children }: { children: ReactNode }) {
+  await io();
+
+  if (!(await getAdminUser())) {
+    redirect("/login");
   }
 
   return (
@@ -28,6 +28,13 @@ export default function DebugLayout({ children }: LayoutProps<"/debug">) {
           { href: "/", label: "Play" },
           { href: "/tree", label: "See the tree" },
         ]}
+        trailing={
+          <form action={signOut}>
+            <button className="btn btn-quiet px-3 py-1 text-base" type="submit">
+              Sign out
+            </button>
+          </form>
+        }
         middle={
           <Suspense>
             <CurrentPlayer />
@@ -50,5 +57,21 @@ export default function DebugLayout({ children }: LayoutProps<"/debug">) {
         </main>
       </div>
     </>
+  );
+}
+
+export default function DebugLayout({ children }: LayoutProps<"/debug">) {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex flex-1 items-center justify-center px-4 py-12">
+          <p className="font-hand text-xl text-ink-muted">
+            Checking admin access…
+          </p>
+        </main>
+      }
+    >
+      <AuthenticatedDebugLayout>{children}</AuthenticatedDebugLayout>
+    </Suspense>
   );
 }

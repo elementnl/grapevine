@@ -4,7 +4,7 @@ import { PlayerSwitcher } from "@/components/PlayerSwitcher";
 import { PlayTurn } from "@/components/PlayTurn";
 import { TopBar } from "@/components/TopBar";
 import { getDebugPlayerSlot, readPlayerId } from "@/server/players/player";
-import { isDebugEnabled } from "@/server/shared/development-only";
+import { isLocalDebugEnabled } from "@/server/shared/development-only";
 import { getCurrentTurn } from "@/server/turns/turns";
 
 async function CurrentTurn() {
@@ -16,15 +16,12 @@ async function CurrentPlayer() {
 }
 
 export default function Home() {
-  const debug = isDebugEnabled();
+  const debug = isLocalDebugEnabled();
 
   return (
     <>
       <TopBar
-        links={[
-          { href: "/tree", label: "See the tree" },
-          ...(debug ? [{ href: "/debug", label: "Debug" }] : []),
-        ]}
+        links={[{ href: "/tree", label: "See the tree" }]}
         middle={
           debug && (
             <Suspense>

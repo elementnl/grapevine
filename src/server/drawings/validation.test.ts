@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { isDrawingData } from "@/server/drawings/validation";
+import { drawingToJson, isDrawingData } from "@/server/drawings/validation";
+import type { Stroke } from "@/types/drawing";
 
 const validDrawing = {
   v: 1,
@@ -51,17 +52,73 @@ describe("drawing validation", () => {
         v: 1,
         strokes: [
           { w: 1, erase: false, c: 4, pts: [12, 14, 0, 3, 5, 10] },
-          { w: 1, erase: false, c: 24, fill: true, pts: [100, 100, 20] },
+          { w: 1, erase: false, c: 33, fill: true, pts: [100, 100, 20] },
         ],
       }),
     ).toBe(true);
+  });
+
+  it("accepts adjustable-width pen and watercolor strokes", () => {
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [
+          {
+            w: 1,
+            size: 8.5,
+            erase: false,
+            pts: [12, 14, 0, 3, 5, 10],
+          },
+          {
+            w: 1,
+            size: 12,
+            brush: "watercolor",
+            erase: false,
+            pts: [20, 24, 11, 3, 5, 20],
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects unsupported brush settings and preserves supported settings", () => {
+    const watercolor: Stroke = {
+      w: 1,
+      size: 12,
+      brush: "watercolor",
+      erase: false,
+      pts: [12, 14, 0, 3, 5, 10],
+    };
+    expect(
+      isDrawingData({ v: 1, strokes: [{ ...watercolor, brush: "unknown" }] }),
+    ).toBe(false);
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [{ ...watercolor, size: 25 }],
+      }),
+    ).toBe(false);
+    expect(
+      isDrawingData({
+        v: 1,
+        strokes: [{ ...watercolor, size: 0.5 }],
+      }),
+    ).toBe(false);
+    expect(drawingToJson({ v: 1, strokes: [watercolor] })).toEqual({
+      v: 1,
+      strokes: [
+        {
+          ...watercolor,
+        },
+      ],
+    });
   });
 
   it("rejects unknown colours and malformed fills", () => {
     expect(
       isDrawingData({
         v: 1,
-        strokes: [{ w: 1, erase: false, c: 25, pts: [12, 14, 0] }],
+        strokes: [{ w: 1, erase: false, c: 34, pts: [12, 14, 0] }],
       }),
     ).toBe(false);
     expect(

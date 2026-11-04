@@ -1,12 +1,12 @@
 import { runAdminAction } from "@/server/admin/admin";
 import { parseAdminAction } from "@/server/admin/admin-validation";
-import { requireDebugEnabled } from "@/server/shared/development-only";
+import { requireAdmin } from "@/server/auth/admin";
 import { GameError } from "@/server/shared/error";
 import { apiErrorResponse, readJsonBody } from "@/server/shared/http";
 
 export async function POST(request: Request) {
   try {
-    requireDebugEnabled();
+    await requireAdmin();
     const action = parseAdminAction(await readJsonBody(request));
     if (!action) {
       throw new GameError(

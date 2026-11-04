@@ -7,9 +7,10 @@ type TopBarProps = {
   // The debug player switcher, when debug tools are on.
   middle?: ReactNode;
   links: Array<{ href: string; label: string }>;
+  trailing?: ReactNode;
 };
 
-export function TopBar({ middle, links }: TopBarProps) {
+export function TopBar({ middle, links, trailing }: TopBarProps) {
   return (
     <nav className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <Link
@@ -29,6 +30,7 @@ export function TopBar({ middle, links }: TopBarProps) {
             {link.label}
           </Link>
         ))}
+        {trailing}
       </div>
     </nav>
   );

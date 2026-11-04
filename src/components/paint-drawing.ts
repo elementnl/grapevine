@@ -18,7 +18,7 @@ export function strokeColor(stroke: Stroke): string {
 }
 
 export function strokeWidth(stroke: Stroke): number {
-  return BRUSH_WIDTHS[stroke.w] ?? BRUSH_WIDTHS[1];
+  return stroke.size ?? BRUSH_WIDTHS[stroke.w] ?? BRUSH_WIDTHS[1];
 }
 
 // Points after the first are stored as deltas from the previous one.
@@ -151,22 +151,76 @@ export function paintStroke(
   const width = strokeWidth(stroke);
   if (points.length === 1) {
     context.fillStyle = color;
+    context.globalAlpha = stroke.brush === "watercolor" ? 0.32 : 1;
     context.beginPath();
     context.arc(first[0], first[1], width / 2, 0, Math.PI * 2);
     context.fill();
+    context.globalAlpha = 1;
+    return;
+  }
+
+  paintStrokePath(context, stroke, () => {
+    context.beginPath();
+    context.moveTo(first[0], first[1]);
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1]!;
+      const current = points[index]!;
+      context.quadraticCurveTo(
+        previous[0],
+        previous[1],
+        (previous[0] + current[0]) / 2,
+        (previous[1] + current[1]) / 2,
+      );
+    }
+    const last = points[points.length - 1]!;
+    context.quadraticCurveTo(last[0], last[1], last[0], last[1]);
+    context.stroke();
+  });
+}
+
+export function paintStrokeSegment(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  start: { x: number; y: number },
+  control: { x: number; y: number },
+  end: { x: number; y: number },
+): void {
+  paintStrokePath(context, stroke, () => {
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.quadraticCurveTo(control.x, control.y, end.x, end.y);
+    context.stroke();
+  });
+}
+
+function paintStrokePath(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  drawPath: () => void,
+): void {
+  const width = strokeWidth(stroke);
+  const color = strokeColor(stroke);
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  if (stroke.brush === "watercolor" && !stroke.erase) {
+    context.strokeStyle = color;
+    context.globalAlpha = 0.2;
+    context.shadowColor = color;
+    context.shadowBlur = width * 0.8;
+    context.lineWidth = width * 1.6;
+    drawPath();
+    context.shadowBlur = 0;
+    context.globalAlpha = 0.16;
+    context.lineWidth = width * 0.75;
+    drawPath();
+    context.shadowColor = "transparent";
+    context.globalAlpha = 1;
     return;
   }
 
   context.strokeStyle = color;
   context.lineWidth = width;
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.beginPath();
-  context.moveTo(first[0], first[1]);
-  for (const [x, y] of points.slice(1)) {
-    context.lineTo(x, y);
-  }
-  context.stroke();
+  drawPath();
 }
 
 export function paintDrawing(

@@ -1,9 +1,33 @@
 import { describe, expect, it } from "vitest";
 
-import { floodFillPixels, strokePoints } from "@/components/paint-drawing";
+import {
+  floodFillPixels,
+  strokePoints,
+  strokeWidth,
+} from "@/components/paint-drawing";
+import {
+  DRAWING_COLOR_ORDER,
+  DRAWING_COLORS,
+  PEN_WIDTHS,
+} from "@/constants/drawing";
 
 const WHITE = [255, 255, 255, 255];
 const BLACK = [0, 0, 0, 255];
+
+describe("drawing palette and pen widths", () => {
+  it("offers 34 colour swatches in two full rows", () => {
+    expect(DRAWING_COLORS).toHaveLength(34);
+    expect(DRAWING_COLOR_ORDER).toHaveLength(34);
+    expect([...DRAWING_COLOR_ORDER].sort((a, b) => a - b)).toEqual(
+      Array.from({ length: 34 }, (_, index) => index),
+    );
+  });
+
+  it("offers five pen widths while retaining legacy stroke widths", () => {
+    expect(PEN_WIDTHS).toEqual([1.5, 3, 6, 12, 24]);
+    expect(strokeWidth({ erase: false, pts: [10, 20, 0], w: 2 })).toBe(24);
+  });
+});
 
 // A 5×5 white board with a black vertical wall at x = 2.
 function boardWithWall(): Uint8ClampedArray {
@@ -43,5 +67,19 @@ describe("strokePoints", () => {
       [15, 17],
       [16, 18],
     ]);
+  });
+});
+
+describe("strokeWidth", () => {
+  it("uses a custom width when present and retains legacy widths", () => {
+    expect(
+      strokeWidth({
+        erase: false,
+        pts: [10, 20, 0],
+        w: 1,
+        size: 8.5,
+      }),
+    ).toBe(8.5);
+    expect(strokeWidth({ erase: false, pts: [10, 20, 0], w: 1 })).toBe(3);
   });
 });

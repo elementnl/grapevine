@@ -1,7 +1,10 @@
 import { DaySetup } from "@/components/DaySetup";
 import { NewGameForm } from "@/components/NewGameForm";
+import { requireAdmin } from "@/server/auth/admin";
 
-export default function NewGamePage() {
+export default async function NewGamePage() {
+  await requireAdmin();
+
   return (
     <>
       <header className="flex flex-col gap-2">
