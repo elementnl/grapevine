@@ -41,6 +41,8 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// "/" is included because its admin link reads the session, and only the
+// proxy may write the refreshed auth cookies.
 export const config = {
-  matcher: ["/debug/:path*", "/api/debug/:path*"],
+  matcher: ["/", "/debug/:path*", "/api/debug/:path*"],
 };
