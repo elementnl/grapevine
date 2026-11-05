@@ -3,7 +3,6 @@ import "server-only";
 import { io } from "next/cache";
 
 import type { AdminAction } from "@/server/admin/admin-validation";
-import { requireAdmin } from "@/server/auth/admin";
 import { getDebugPlayerSlot } from "@/server/players/player";
 import { GameError } from "@/server/shared/error";
 import { getSupabaseAdminClient } from "@/server/shared/supabase";
@@ -40,7 +39,6 @@ async function nodeOwners() {
 
 export async function listGames(): Promise<GameSummary[]> {
   await io();
-  await requireAdmin();
   const client = getSupabaseAdminClient();
   const [{ data: days, error }, owners] = await Promise.all([
     client
@@ -65,7 +63,6 @@ export async function listGames(): Promise<GameSummary[]> {
 
 export async function listPlayers(): Promise<PlayerSummary[]> {
   await io();
-  await requireAdmin();
   const client = getSupabaseAdminClient();
   const [{ data: players, error }, owners] = await Promise.all([
     client
@@ -123,7 +120,6 @@ async function setGameStatus(date: string, status: "live" | "frozen") {
 export async function runAdminAction(
   action: AdminAction,
 ): Promise<{ ok: true }> {
-  await requireAdmin();
   const client = getSupabaseAdminClient();
   switch (action.action) {
     case "rename_game": {

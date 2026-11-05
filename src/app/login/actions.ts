@@ -2,7 +2,10 @@
 
 import { redirect } from "next/navigation";
 
-import { createSupabaseAuthClient } from "@/server/auth/supabase-auth";
+import {
+  signInWithPassword,
+  signOut as endSession,
+} from "@/server/auth/session";
 
 export type LoginActionState = {
   error: string | null;
@@ -23,12 +26,7 @@ export async function signIn(
     return { error: "Enter your email and password." };
   }
 
-  const supabase = await createSupabaseAuthClient({ canWriteCookies: true });
-  const { error } = await supabase.auth.signInWithPassword({
-    email: email.trim(),
-    password,
-  });
-  if (error) {
+  if (!(await signInWithPassword(email.trim(), password))) {
     return { error: "Email or password is incorrect." };
   }
 
@@ -36,11 +34,6 @@ export async function signIn(
 }
 
 export async function signOut(): Promise<void> {
-  const supabase = await createSupabaseAuthClient({ canWriteCookies: true });
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    throw error;
-  }
-
+  await endSession();
   redirect("/login");
 }

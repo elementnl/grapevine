@@ -1,24 +1,24 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { createSupabaseAuthClient } from "@/server/auth/supabase-auth";
 import { GameError } from "@/server/shared/error";
 
-export async function getAdminUser(): Promise<{ id: string } | null> {
+export const getAdminUser = cache(async (): Promise<{ id: string } | null> => {
   const supabase = await createSupabaseAuthClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getClaims();
 
   if (error && error.name !== "AuthSessionMissingError") {
     throw error;
   }
-  if (!user) {
+  const claims = data?.claims;
+  if (!claims) {
     return null;
   }
 
-  return { id: user.id };
-}
+  return { id: claims.sub };
+});
 
 export async function requireAdmin(): Promise<void> {
   if (!(await getAdminUser())) {
