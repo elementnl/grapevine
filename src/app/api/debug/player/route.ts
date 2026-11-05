@@ -3,13 +3,13 @@ import {
   isDebugPlayerSlot,
   switchToDebugPlayer,
 } from "@/server/players/player";
-import { requireDebugEnabled } from "@/server/shared/development-only";
+import { requireAdmin } from "@/server/auth/admin";
 import { GameError } from "@/server/shared/error";
 import { apiErrorResponse, readJsonBody } from "@/server/shared/http";
 
 export async function POST(request: Request) {
   try {
-    requireDebugEnabled();
+    await requireAdmin();
     const body = await readJsonBody(request);
     const slot =
       typeof body === "object" && body !== null && "slot" in body

@@ -1,6 +1,10 @@
 import "server-only";
 
-import { GameError, SupabaseConfigurationError } from "@/server/shared/error";
+import {
+  AuthenticationConfigurationError,
+  GameError,
+  SupabaseConfigurationError,
+} from "@/server/shared/error";
 
 const MAX_REQUEST_SIZE = 1_000_000;
 
@@ -84,6 +88,17 @@ export function apiErrorResponse(error: unknown): Response {
     return Response.json(
       {
         error: "database_not_configured",
+        message: error.message,
+      },
+      { status: 503 },
+    );
+  }
+
+  if (error instanceof AuthenticationConfigurationError) {
+    console.error(error.message);
+    return Response.json(
+      {
+        error: "auth_not_configured",
         message: error.message,
       },
       { status: 503 },

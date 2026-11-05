@@ -18,7 +18,7 @@ export function strokeColor(stroke: Stroke): string {
 }
 
 export function strokeWidth(stroke: Stroke): number {
-  return BRUSH_WIDTHS[stroke.w] ?? BRUSH_WIDTHS[1];
+  return stroke.size ?? BRUSH_WIDTHS[stroke.w] ?? BRUSH_WIDTHS[1];
 }
 
 // Points after the first are stored as deltas from the previous one.
@@ -157,16 +157,52 @@ export function paintStroke(
     return;
   }
 
-  context.strokeStyle = color;
-  context.lineWidth = width;
+  paintStrokePath(context, stroke, () => {
+    context.beginPath();
+    context.moveTo(first[0], first[1]);
+    for (let index = 1; index < points.length; index += 1) {
+      const previous = points[index - 1]!;
+      const current = points[index]!;
+      context.quadraticCurveTo(
+        previous[0],
+        previous[1],
+        (previous[0] + current[0]) / 2,
+        (previous[1] + current[1]) / 2,
+      );
+    }
+    const last = points[points.length - 1]!;
+    context.quadraticCurveTo(last[0], last[1], last[0], last[1]);
+    context.stroke();
+  });
+}
+
+export function paintStrokeSegment(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  start: { x: number; y: number },
+  control: { x: number; y: number },
+  end: { x: number; y: number },
+): void {
+  paintStrokePath(context, stroke, () => {
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.quadraticCurveTo(control.x, control.y, end.x, end.y);
+    context.stroke();
+  });
+}
+
+function paintStrokePath(
+  context: CanvasRenderingContext2D,
+  stroke: Stroke,
+  drawPath: () => void,
+): void {
+  const width = strokeWidth(stroke);
+  const color = strokeColor(stroke);
   context.lineCap = "round";
   context.lineJoin = "round";
-  context.beginPath();
-  context.moveTo(first[0], first[1]);
-  for (const [x, y] of points.slice(1)) {
-    context.lineTo(x, y);
-  }
-  context.stroke();
+  context.strokeStyle = color;
+  context.lineWidth = width;
+  drawPath();
 }
 
 export function paintDrawing(

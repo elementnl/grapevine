@@ -8,6 +8,7 @@ import { GameStatusActions } from "@/components/GameStatusActions";
 import { PromptEditor } from "@/components/PromptEditor";
 import { StatusBadge } from "@/components/StatusBadge";
 import { playerLabel } from "@/components/player-label";
+import { requireAdmin } from "@/server/auth/admin";
 import { isGameDate } from "@/server/days/setup-validation";
 import { getGame } from "@/server/turns/turns";
 
@@ -17,6 +18,7 @@ async function GameDetail({
   params: PageProps<"/debug/games/[date]">["params"];
 }) {
   const { date } = await params;
+  await requireAdmin();
   const game = isGameDate(date) ? await getGame(date) : null;
   if (!game) {
     notFound();
