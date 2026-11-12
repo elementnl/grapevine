@@ -14,12 +14,12 @@ import type {
   TurnSubmission,
 } from "@/types/game";
 
-type GameDay = { date: string; prompt: string; status: GameStatus };
+type GameDay = { id: string; date: string; prompt: string; status: GameStatus };
 
 async function getLiveDay(): Promise<GameDay | null> {
   const { data, error } = await getSupabaseAdminClient()
     .from("days")
-    .select("date, initial_prompt")
+    .select("id, date, initial_prompt")
     .eq("status", "live")
     .maybeSingle();
 
@@ -27,14 +27,19 @@ async function getLiveDay(): Promise<GameDay | null> {
     throw new Error(`Supabase request failed: ${error.message}`);
   }
   return data
-    ? { date: data.date, prompt: data.initial_prompt, status: "live" }
+    ? {
+        id: data.id,
+        date: data.date,
+        prompt: data.initial_prompt,
+        status: "live",
+      }
     : null;
 }
 
 async function getLatestFrozenDay(): Promise<GameDay | null> {
   const { data, error } = await getSupabaseAdminClient()
     .from("days")
-    .select("date, initial_prompt")
+    .select("id, date, initial_prompt")
     .eq("status", "frozen")
     .order("frozen_at", { ascending: false, nullsFirst: false })
     .limit(1)
@@ -44,7 +49,12 @@ async function getLatestFrozenDay(): Promise<GameDay | null> {
     throw new Error(`Supabase request failed: ${error.message}`);
   }
   return data
-    ? { date: data.date, prompt: data.initial_prompt, status: "frozen" }
+    ? {
+        id: data.id,
+        date: data.date,
+        prompt: data.initial_prompt,
+        status: "frozen",
+      }
     : null;
 }
 
@@ -134,7 +144,8 @@ export async function getGame(date: string): Promise<GameChain | null> {
   return {
     date: data.date,
     prompt: data.initial_prompt,
-    status: data.status,
+    // days.status is text with a check constraint, so it is always a GameStatus.
+    status: data.status as GameStatus,
     nodes: await getDayNodes(data.date),
   };
 }
@@ -170,12 +181,14 @@ export async function submitTurn(
     submission.kind === "guess"
       ? await client.from("guesses").insert({
           day: day.date,
+          day_id: day.id,
           drawing_id: submission.drawingId,
           player_id: playerId,
           text: submission.text,
         })
       : await client.from("drawings").insert({
           day: day.date,
+          day_id: day.id,
           parent_guess_id: submission.guessId,
           player_id: playerId,
           status: "visible",

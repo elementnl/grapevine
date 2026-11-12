@@ -8,6 +8,7 @@ import { getDebugPlayerSlot } from "@/server/players/player";
 import { GameError } from "@/server/shared/error";
 import { getSupabaseAdminClient } from "@/server/shared/supabase";
 import type { GameSummary, PlayerSummary } from "@/types/admin";
+import type { GameStatus } from "@/types/game";
 
 function check(error: { message: string } | null): void {
   if (error) {
@@ -56,7 +57,8 @@ export async function listGames(): Promise<GameSummary[]> {
   return (days ?? []).map((day) => ({
     date: day.date,
     prompt: day.initial_prompt,
-    status: day.status,
+    // days.status is text with a check constraint, so it is always a GameStatus.
+    status: day.status as GameStatus,
     drawings: drawings.get(day.date) ?? 0,
     guesses: guesses.get(day.date) ?? 0,
     createdAt: day.created_at,
