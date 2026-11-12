@@ -132,7 +132,7 @@ async function saveStarterDrawing(
   const client = getSupabaseAdminClient();
   const { data: day, error: dayError } = await client
     .from("days")
-    .select("status")
+    .select("id, status")
     .eq("date", date)
     .maybeSingle();
 
@@ -178,6 +178,7 @@ async function saveStarterDrawing(
 
   const { error: insertError } = await client.from("drawings").insert({
     day: date,
+    day_id: day.id,
     parent_guess_id: null,
     // The starter belongs to whoever drew it, so they aren't asked to guess it.
     player_id: playerId,
