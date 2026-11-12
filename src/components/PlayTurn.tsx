@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
+import { Countdown } from "@/components/Countdown";
 import { DrawingCanvas } from "@/components/DrawingCanvas";
 import { DrawingView } from "@/components/DrawingView";
 import {
@@ -10,24 +12,23 @@ import {
   GUESS_MIN_LENGTH,
   WAITING_POLL_INTERVAL_MS,
 } from "@/constants/game";
-import type { DrawingData } from "@/types/drawing";
-import type { Turn, TurnSubmission } from "@/types/game";
+import type { OpenTurn, Turn } from "@/types/game";
 
 type PlayTurnProps = {
   turn: Turn;
 };
 
-async function postTurn(submission: TurnSubmission): Promise<void> {
-  const response = await fetch("/api/turn", {
+async function postJson(url: string, body?: unknown): Promise<void> {
+  const response = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(submission),
+    body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (response.ok) {
     return;
   }
 
-  let message = `The turn could not be saved (HTTP ${response.status}).`;
+  let message = `Something went wrong (HTTP ${response.status}).`;
   try {
     const result: unknown = await response.json();
     if (
@@ -44,32 +45,77 @@ async function postTurn(submission: TurnSubmission): Promise<void> {
   throw new Error(message);
 }
 
+function submitUrl(turn: OpenTurn): string {
+  return `/api/turns/${turn.assignmentId}/submit`;
+}
+
+function turnsLeftLabel(turnsLeft: number | null): string {
+  if (turnsLeft === null) {
+    return "Unlimited turns while testing locally.";
+  }
+  return turnsLeft === 1
+    ? "1 turn left today."
+    : `${turnsLeft} turns left today.`;
+}
+
 function GuessTurn({
-  drawing,
-  drawingId,
+  turn,
   onDone,
 }: {
-  drawing: DrawingData;
-  drawingId: number;
+  turn: Extract<OpenTurn, { task: "guess" }>;
   onDone: () => void;
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textRef = useRef(text);
+  const busyRef = useRef(false);
 
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
+
+  const send = async () => {
+    if (busyRef.current) {
+      return;
+    }
+    busyRef.current = true;
     setBusy(true);
     setError(null);
     try {
-      await postTurn({ kind: "guess", drawingId, text });
+      await postJson(submitUrl(turn), { text: textRef.current });
       onDone();
     } catch (reason) {
+      busyRef.current = false;
+      setBusy(false);
       setError(
         reason instanceof Error ? reason.message : "Could not save the guess.",
       );
-      setBusy(false);
     }
+  };
+  const sendRef = useRef(send);
+  useEffect(() => {
+    sendRef.current = send;
+  });
+
+  // At zero, a long-enough guess is sent; otherwise the turn lapses and is given back.
+  useEffect(() => {
+    const timer = setTimeout(
+      () => {
+        if (textRef.current.trim().length >= GUESS_MIN_LENGTH) {
+          void sendRef.current();
+        } else {
+          onDone();
+        }
+      },
+      Math.max(0, Date.parse(turn.endsAt) - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [onDone, turn.endsAt]);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void send();
   };
 
   return (
@@ -78,13 +124,15 @@ function GuessTurn({
         <p className="font-hand text-lg text-ink-muted">Your turn</p>
         <h1 className="font-hand text-4xl font-bold">What is this?</h1>
       </header>
-      <DrawingView drawing={drawing} label="The drawing to guess" />
+      <Countdown endsAt={turn.endsAt} totalSeconds={turn.timeLimitSec} />
+      <DrawingView drawing={turn.drawing} label="The drawing to guess" />
       <form className="flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
         <label className="sr-only" htmlFor="guess">
           Your guess
         </label>
         <input
           autoComplete="off"
+          autoFocus
           className="field flex-1"
           disabled={busy}
           id="guess"
@@ -108,7 +156,55 @@ function GuessTurn({
   );
 }
 
-function Waiting() {
+function Ready({
+  turnsLeft,
+  onStarted,
+}: {
+  turnsLeft: number | null;
+  onStarted: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const start = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await postJson("/api/turns");
+      onStarted();
+    } catch (reason) {
+      setBusy(false);
+      setError(
+        reason instanceof Error ? reason.message : "Could not start a turn.",
+      );
+    }
+  };
+
+  return (
+    <section className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
+      <h1 className="font-hand text-5xl font-bold">Ready?</h1>
+      <p className="text-ink-muted">
+        You&apos;ll get a drawing to guess or a guess to draw, with a timer.{" "}
+        {turnsLeftLabel(turnsLeft)}
+      </p>
+      <button
+        className="btn btn-primary px-8 text-2xl"
+        disabled={busy}
+        onClick={() => void start()}
+        type="button"
+      >
+        {busy ? "Finding a turn…" : "Play"}
+      </button>
+      {error && (
+        <p aria-live="polite" className="text-danger">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function Waiting({ turnsLeft }: { turnsLeft: number | null }) {
   const router = useRouter();
 
   useEffect(() => {
@@ -132,8 +228,8 @@ function Waiting() {
       </div>
       <h1 className="font-hand text-4xl font-bold">Passed down the vine</h1>
       <p className="text-ink-muted">
-        Waiting for the other player. This page updates on its own when
-        it&apos;s your turn.
+        Nothing new for you to play yet. This page updates on its own when
+        someone adds to the tree. {turnsLeftLabel(turnsLeft)}
       </p>
     </section>
   );
@@ -150,32 +246,58 @@ export function PlayTurn({ turn }: PlayTurnProps) {
           <h1 className="font-hand text-4xl font-bold">Nothing to play yet</h1>
           <p className="text-ink-muted">
             A game starts when someone writes a secret prompt and draws it.
-            Start one from the debug view.
+            Start one from the admin view.
           </p>
         </section>
       );
-    case "wait":
-      return <Waiting />;
-    case "guess":
+    case "ready":
+      return <Ready onStarted={refresh} turnsLeft={turn.turnsLeft} />;
+    case "nothing_to_play":
+      return <Waiting turnsLeft={turn.turnsLeft} />;
+    case "out_of_turns":
       return (
-        <GuessTurn
-          drawing={turn.drawing}
-          drawingId={turn.drawingId}
-          key={turn.drawingId}
-          onDone={refresh}
-        />
+        <section className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
+          <h1 className="font-hand text-4xl font-bold">
+            That&apos;s all for today
+          </h1>
+          <p className="text-ink-muted">
+            Come back tomorrow to see where your drawings and guesses went.
+          </p>
+          <Link className="btn" href="/tree">
+            See the tree
+          </Link>
+        </section>
       );
-    case "draw":
+    case "playing": {
+      const current = turn.turn;
+      if (current.task === "guess") {
+        return (
+          <GuessTurn
+            key={current.assignmentId}
+            onDone={refresh}
+            turn={current}
+          />
+        );
+      }
       return (
-        <DrawingCanvas
-          key={turn.guessId}
-          onSubmit={async (drawing) => {
-            await postTurn({ kind: "draw", guessId: turn.guessId, drawing });
-            refresh();
-          }}
-          prompt={turn.prompt}
-          submitLabel="Submit drawing"
-        />
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
+          <Countdown
+            endsAt={current.endsAt}
+            totalSeconds={current.timeLimitSec}
+          />
+          <DrawingCanvas
+            endsAt={current.endsAt}
+            key={current.assignmentId}
+            onSubmit={async (drawing) => {
+              await postJson(submitUrl(current), { drawing });
+              refresh();
+            }}
+            onTimeUp={refresh}
+            prompt={current.prompt}
+            submitLabel="Submit drawing"
+          />
+        </div>
       );
+    }
   }
 }

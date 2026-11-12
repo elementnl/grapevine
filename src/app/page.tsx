@@ -7,7 +7,7 @@ import { TopBar } from "@/components/TopBar";
 import { getAdminUser } from "@/server/auth/admin";
 import { getDebugPlayerSlot, readPlayerId } from "@/server/players/player";
 import { isLocalDebugEnabled } from "@/server/shared/development-only";
-import { getCurrentTurn } from "@/server/turns/turns";
+import { getTurn } from "@/server/turns/play";
 
 async function AdminLink() {
   if (!(await getAdminUser())) {
@@ -22,7 +22,7 @@ async function AdminLink() {
 }
 
 async function CurrentTurn() {
-  return <PlayTurn turn={await getCurrentTurn(await readPlayerId())} />;
+  return <PlayTurn turn={await getTurn(await readPlayerId())} />;
 }
 
 async function CurrentPlayer() {
