@@ -7,8 +7,18 @@ export const GUESS_MAX_LENGTH = 80;
 export const PLAYER_COOKIE_NAME = "grapevine_player";
 export const PLAYER_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
-// How often the waiting screen checks whether the other player has moved.
+// How often the waiting screen checks whether there is something new to play.
 export const WAITING_POLL_INTERVAL_MS = 3_000;
+
+// Turns each player gets per day. Unlimited under `make dev`, for testing.
+export const TURNS_PER_DAY = 3;
+export const DRAW_SECONDS = 90;
+export const GUESS_SECONDS = 30;
+// The server keeps a turn open this long past its timer, for slow networks
+// and the drawing that auto-submits at zero.
+export const TURN_GRACE_SECONDS = 30;
+// Assignment weight is 1 / (1 + height) ^ exponent (spec: Assignment algorithm).
+export const HEIGHT_EXPONENT = 1.5;
 
 // Fixed identities for the debug player switcher, so one person can play both sides.
 export const DEBUG_PLAYERS = {

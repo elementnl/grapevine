@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isAssignmentId,
   normalizeGuess,
   parseTurnSubmission,
 } from "@/server/turns/submission-validation";
@@ -16,33 +17,24 @@ describe("turn submission validation", () => {
   });
 
   it("accepts a guess within the length limits", () => {
-    expect(
-      parseTurnSubmission({ kind: "guess", drawingId: 4, text: " a cat " }),
-    ).toEqual({ kind: "guess", drawingId: 4, text: "a cat" });
-    expect(
-      parseTurnSubmission({ kind: "guess", drawingId: 4, text: " ab " }),
-    ).toBeNull();
-    expect(
-      parseTurnSubmission({
-        kind: "guess",
-        drawingId: 4,
-        text: "x".repeat(81),
-      }),
-    ).toBeNull();
+    expect(parseTurnSubmission({ text: " a cat " })).toEqual({
+      kind: "guess",
+      text: "a cat",
+    });
+    expect(parseTurnSubmission({ text: " ab " })).toBeNull();
+    expect(parseTurnSubmission({ text: "x".repeat(81) })).toBeNull();
   });
 
-  it("accepts a drawing for a guess and rejects bad ids", () => {
-    expect(parseTurnSubmission({ kind: "draw", guessId: 7, drawing })).toEqual({
-      kind: "draw",
-      guessId: 7,
-      drawing,
-    });
-    expect(
-      parseTurnSubmission({ kind: "draw", guessId: 0, drawing }),
-    ).toBeNull();
-    expect(
-      parseTurnSubmission({ kind: "draw", guessId: 7, drawing: { v: 1 } }),
-    ).toBeNull();
-    expect(parseTurnSubmission({ kind: "skip" })).toBeNull();
+  it("accepts a valid drawing and rejects anything else", () => {
+    expect(parseTurnSubmission({ drawing })).toEqual({ kind: "draw", drawing });
+    expect(parseTurnSubmission({ drawing: { v: 1 } })).toBeNull();
+    expect(parseTurnSubmission({ skip: true })).toBeNull();
+    expect(parseTurnSubmission("a cat")).toBeNull();
+  });
+
+  it("only accepts uuid assignment ids", () => {
+    expect(isAssignmentId("4f2c1a6e-3b7d-4c2e-9f10-2a3b4c5d6e7f")).toBe(true);
+    expect(isAssignmentId("42")).toBe(false);
+    expect(isAssignmentId(42)).toBe(false);
   });
 });

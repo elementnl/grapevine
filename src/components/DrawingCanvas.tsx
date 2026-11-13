@@ -31,6 +31,10 @@ type DrawingCanvasProps = {
   onSubmit: (drawing: DrawingData) => Promise<void>;
   prompt: string;
   submitLabel?: string;
+  // When the turn's timer ends: the drawing submits itself, or, if the board
+  // is empty, `onTimeUp` runs instead.
+  endsAt?: string;
+  onTimeUp?: () => void;
 };
 
 type DrawingPhase = "drawing" | "saving" | "saved" | "error";
@@ -147,6 +151,8 @@ export function DrawingCanvas({
   onSubmit,
   prompt,
   submitLabel = "Save drawing",
+  endsAt,
+  onTimeUp,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -528,6 +534,24 @@ export function DrawingCanvas({
   const retrySave = () => {
     void submitDrawing();
   };
+
+  useEffect(() => {
+    if (!endsAt) {
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        finishStroke();
+        if (strokesRef.current.length > 0) {
+          void submitDrawing();
+        } else {
+          onTimeUp?.();
+        }
+      },
+      Math.max(0, Date.parse(endsAt) - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [endsAt, finishStroke, onTimeUp, submitDrawing]);
 
   const submitManually = () => {
     finishStroke();
