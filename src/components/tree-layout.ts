@@ -19,7 +19,15 @@ export type LaidOutNode =
       drawing: DrawingData;
       index: number;
     }
-  | { kind: "guess"; key: string; x: number; y: number; text: string };
+  | {
+      kind: "guess";
+      key: string;
+      x: number;
+      y: number;
+      text: string;
+      count: number;
+      aliases: string[];
+    };
 
 export type LaidOutEdge = {
   key: string;
@@ -115,6 +123,8 @@ export function layoutTree(prompt: string, nodes: ChainNode[]): TreeLayout {
         x,
         y: top,
         text: node.source.text,
+        count: node.source.count,
+        aliases: node.source.aliases,
       });
     }
 

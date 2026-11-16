@@ -89,21 +89,39 @@ async function GameDetail({
                       />
                     </div>
                   ) : (
-                    <p className="font-hand text-2xl font-bold">
-                      <span className="marker">{node.text}</span>
-                    </p>
+                    <>
+                      <p className="font-hand text-2xl font-bold">
+                        <span className="marker">{node.text}</span>
+                        {node.count > 1 && (
+                          <span className="ml-2 text-base font-normal text-ink-muted">
+                            ×{node.count}
+                          </span>
+                        )}
+                      </p>
+                      {node.aliases.length > 0 && (
+                        <p className="text-sm text-ink-muted">
+                          Also: {node.aliases.join(" · ")}
+                        </p>
+                      )}
+                    </>
                   )}
                   <p className="mt-1 text-sm text-ink-muted">
                     {node.kind === "drawing"
                       ? node.parentId === null
                         ? "Starter drawing"
                         : "Drawing"
-                      : "Guess"}{" "}
+                      : node.count > 1
+                        ? "Guess cluster started"
+                        : "Guess"}{" "}
                     by {playerLabel(node.playerId)}
                   </p>
                 </div>
                 <ActionButton
-                  confirm={`Delete this ${node.kind} and everything after it?`}
+                  confirm={
+                    node.kind === "guess" && node.count > 1
+                      ? `Delete this cluster of ${node.count} guesses and everything after it?`
+                      : `Delete this ${node.kind} and everything after it?`
+                  }
                   payload={{
                     action: "delete_node",
                     kind: node.kind,

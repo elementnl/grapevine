@@ -24,6 +24,7 @@ Copy `.env.example` to `.env.local` and set:
 
 - `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from the Supabase project settings. Keep the secret key private; it is server-only, bypasses row-level security, and must never use a `NEXT_PUBLIC_` prefix.
 - `SUPABASE_PUBLISHABLE_KEY` from the project's API settings. This key is used only by the server-side Supabase Auth client.
+- `OPENAI_API_KEY` for guess clustering (embeddings). Server-only. Without it the game still works, and every guess starts its own cluster.
 
 Create the database schema with the migration under `supabase/migrations/` before calling the game API.
 

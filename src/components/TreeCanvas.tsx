@@ -124,10 +124,20 @@ function GuessNode({
   const { width, height } = TREE_NODE_SIZE.guess;
   return (
     <foreignObject height={height} width={width} x={node.x} y={node.y}>
-      <div className="flex h-full items-center justify-center px-2 text-center">
+      <div className="flex h-full flex-col items-center justify-center gap-0.5 px-2 text-center">
         <p className="font-hand text-2xl leading-tight font-bold [overflow-wrap:anywhere]">
           <span className="marker">{node.text}</span>
+          {node.count > 1 && (
+            <span className="ml-1.5 align-middle text-base font-normal text-ink-muted">
+              ×{node.count}
+            </span>
+          )}
         </p>
+        {node.aliases.length > 0 && (
+          <p className="w-full truncate text-sm text-ink-muted">
+            {node.aliases.join(" · ")}
+          </p>
+        )}
       </div>
     </foreignObject>
   );
@@ -404,7 +414,15 @@ export function TreeCanvas({ layout, date, status }: TreeCanvasProps) {
               ? "The secret prompt (hidden until revealed)"
               : node.kind === "drawing"
                 ? `Drawing ${node.index}`
-                : `Guess: ${node.text}`}
+                : `Guess: ${node.text}${
+                    node.count > 1
+                      ? `, guessed ${node.count} times${
+                          node.aliases.length > 0
+                            ? `, also as ${node.aliases.join(", ")}`
+                            : ""
+                        }`
+                      : ""
+                  }`}
           </li>
         ))}
       </ol>

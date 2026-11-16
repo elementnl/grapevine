@@ -4,6 +4,7 @@ import { connection } from "next/server";
 
 import { isDrawingData } from "@/server/drawings/validation";
 import { getSupabaseAdminClient } from "@/server/shared/supabase";
+import { foldClusters } from "@/server/turns/clustering";
 import type { ChainNode, GameChain, GameStatus } from "@/types/game";
 
 export type GameDay = {
@@ -65,7 +66,7 @@ export async function getDayNodes(date: string): Promise<ChainNode[]> {
       .eq("status", "visible"),
     client
       .from("guesses")
-      .select("id, drawing_id, depth, player_id, text")
+      .select("id, drawing_id, depth, player_id, text, cluster_id")
       .eq("day", date),
   ]);
 
@@ -91,14 +92,19 @@ export async function getDayNodes(date: string): Promise<ChainNode[]> {
       drawing: row.strokes,
     });
   }
-  for (const row of guesses.data) {
+  const clusters = foldClusters(
+    guesses.data.map((row) => ({ ...row, clusterId: row.cluster_id })),
+  );
+  for (const cluster of clusters) {
     nodes.push({
       kind: "guess",
-      id: row.id,
-      parentId: row.drawing_id,
-      depth: row.depth,
-      playerId: row.player_id,
-      text: row.text,
+      id: cluster.id,
+      parentId: cluster.drawing_id,
+      depth: cluster.depth,
+      playerId: cluster.player_id,
+      text: cluster.text,
+      count: cluster.count,
+      aliases: cluster.aliases,
     });
   }
   return nodes;
