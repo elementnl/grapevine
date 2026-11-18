@@ -10,6 +10,7 @@ import { drawingToJson, isDrawingData } from "@/server/drawings/validation";
 import { isLocalDebugEnabled } from "@/server/shared/development-only";
 import { GameError } from "@/server/shared/error";
 import { getSupabaseAdminClient } from "@/server/shared/supabase";
+import { clusterGuess } from "@/server/turns/clustering";
 import {
   type Candidate,
   eligibleNodes,
@@ -293,6 +294,13 @@ export async function submitTurn(
     );
   }
 
+  // Clustering calls the embeddings API, so it runs before the turn is
+  // claimed to keep the claim-to-insert window short.
+  const cluster =
+    submission.kind === "guess"
+      ? await clusterGuess(row.drawing_id!, submission.text)
+      : null;
+
   // Claim the turn before adding the node, so a double submit adds one node.
   const { data: claimed, error: claimError } = await client
     .from("assignments")
@@ -319,6 +327,9 @@ export async function submitTurn(
           drawing_id: row.drawing_id!,
           player_id: playerId,
           text: submission.text,
+          cluster_id: cluster?.clusterId ?? null,
+          embedding: cluster?.embedding ?? null,
+          similarity: cluster?.similarity ?? null,
         })
       : await client.from("drawings").insert({
           day: day.date,

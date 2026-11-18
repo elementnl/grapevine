@@ -179,6 +179,7 @@ export type Database = {
           height: number;
           id: number;
           player_id: string | null;
+          similarity: number | null;
           text: string;
         };
         Insert: {
@@ -192,6 +193,7 @@ export type Database = {
           height?: number;
           id?: number;
           player_id?: string | null;
+          similarity?: number | null;
           text: string;
         };
         Update: {
@@ -205,6 +207,7 @@ export type Database = {
           height?: number;
           id?: number;
           player_id?: string | null;
+          similarity?: number | null;
           text?: string;
         };
         Relationships: [
@@ -270,7 +273,13 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      match_guess: {
+        Args: { query_embedding: string; target_drawing_id: number };
+        Returns: {
+          head_id: number;
+          similarity: number;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

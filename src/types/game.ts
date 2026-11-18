@@ -16,7 +16,11 @@ export type ChainNode =
       parentId: number;
       depth: number;
       playerId: string | null;
+      // A guess cluster: the head's wording, how many guesses it holds, and
+      // the members' other wordings.
       text: string;
+      count: number;
+      aliases: string[];
     };
 
 // What the play page shows. `turnsLeft` is null when turns are unlimited (local dev).

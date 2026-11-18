@@ -25,6 +25,8 @@ function guess(id: number, parentId: number): ChainNode {
     depth: 2,
     playerId: "b",
     text: `guess ${id}`,
+    count: 1,
+    aliases: [],
   };
 }
 
