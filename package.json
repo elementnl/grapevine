@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.119.0",
+    "@supabase/supabase-js": "^2.119.1",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -20,12 +20,12 @@
     "@types/react-dom": "^19",
     "eslint": "^10",
     "eslint-config-next": "16.4.6",
-    "prettier": "^3.10.0",
+    "prettier": "^3.10.1",
     "prettier-plugin-tailwindcss": "^0.8.1",
-    "supabase": "^3.1.0",
+    "supabase": "^3.2.0",
     "tailwindcss": "^4",
     "typescript": "^6",
-    "vitest": "^5.0.5"
+    "vitest": "^5.1.1"
   },
   "description": "One shared game of picture telephone, every day.",
   "license": "UNLICENSED",
