@@ -7,11 +7,6 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.18";
-  };
   public: {
     Tables: {
       assignments: {
@@ -25,6 +20,7 @@ export type Database = {
           outcome: string | null;
           player_id: string;
         };
+        ComputedFields: never;
         Insert: {
           day_id: string;
           drawing_id?: number | null;
@@ -86,6 +82,7 @@ export type Database = {
           opened_at: string | null;
           status: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           date: string;
@@ -117,8 +114,9 @@ export type Database = {
           parent_guess_id: number | null;
           player_id: string | null;
           status: string;
-          strokes: Json;
+          strokes: NonNullable<Json>;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           day: string;
@@ -129,7 +127,7 @@ export type Database = {
           parent_guess_id?: number | null;
           player_id?: string | null;
           status?: string;
-          strokes: Json;
+          strokes: NonNullable<Json>;
         };
         Update: {
           created_at?: string;
@@ -141,7 +139,7 @@ export type Database = {
           parent_guess_id?: number | null;
           player_id?: string | null;
           status?: string;
-          strokes?: Json;
+          strokes?: NonNullable<Json>;
         };
         Relationships: [
           {
@@ -182,6 +180,7 @@ export type Database = {
           similarity: number | null;
           text: string;
         };
+        ComputedFields: never;
         Insert: {
           cluster_id?: number | null;
           created_at?: string;
@@ -245,6 +244,7 @@ export type Database = {
         Row: {
           last: string;
         };
+        ComputedFields: never;
         Insert: {
           last?: string;
         };
@@ -258,6 +258,7 @@ export type Database = {
           created_at: string;
           id: string;
         };
+        ComputedFields: never;
         Insert: {
           created_at?: string;
           id?: string;

@@ -108,7 +108,7 @@ export function isDrawingData(value: unknown): value is DrawingData {
 }
 
 // Copies only the known fields, so extra keys in a request never reach the database.
-export function drawingToJson(drawing: DrawingData): Json {
+export function drawingToJson(drawing: DrawingData): NonNullable<Json> {
   return {
     v: 1,
     strokes: drawing.strokes.map(({ erase, pts, w, c, fill, size }) => ({

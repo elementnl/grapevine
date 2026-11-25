@@ -1,33 +1,52 @@
 ---
 name: supabase-setup
-description: Connect this machine's Supabase CLI to the Grapevine production project. Use when a db-* make target fails with "not logged in", "project not linked" or "cannot find project ref", or when someone is setting up the repo on a new machine.
+description: Set up the local Supabase database for Grapevine development, or connect the CLI to prod for debugging. Use on a new machine, when `make dev` can't reach the database, when a db-* make target says Docker isn't running, or when a prod make target fails with "not logged in" or "project not linked".
 ---
 
 # Supabase setup
 
-Grapevine has one database: production. There is no local Supabase stack and no Docker. Every `make db-*` target talks to prod through the Supabase CLI (installed as a dev dependency, so `make install` provides it).
+Local development runs against a Supabase stack in Docker, built from the migrations in `supabase/migrations/`. Prod is never changed from a laptop: merging migrations into `main` deploys them (see the `supabase-migration` skill). The Supabase CLI is a dev dependency, so `make install` provides it.
 
-## Steps
+## Local database
 
-1. **Log in** (once per machine). This opens a browser, so ask the user to run it themselves:
+1. **Docker** must be running (Docker Desktop, OrbStack or similar). Ask the user to start it if `make db-start` says it can't connect.
 
-   ```bash
-   make db-login
-   ```
-
-2. **Link** the repo to the project (once per machine). Ask the user for the project ref if you don't have it. It's the 20-letter id in the dashboard URL (`supabase.com/dashboard/project/<ref>`). Linking may prompt for the database password; the user should type it, never paste it into the chat.
+2. **Start the stack.** The first run downloads images and takes a few minutes; after that it starts in seconds.
 
    ```bash
-   make db-link ref=<project-ref>
+   make db-start
    ```
 
-   The link is stored in `supabase/.temp/`, which is gitignored.
+3. **Point the app at it.** `make db-status` prints the local URL and keys. Put them in `.env.local` (gitignored):
 
-3. **Verify:** `make db-status` should list migrations without errors. A brand-new project shows an empty remote column.
+   ```
+   SUPABASE_URL=http://127.0.0.1:54321
+   SUPABASE_PUBLISHABLE_KEY=<Publishable key from db-status>
+   SUPABASE_SECRET_KEY=<Secret key from db-status>
+   ```
 
-4. **Backups:** remind the user to confirm in the dashboard (Database → Backups) that daily backups are on. We run migrations straight against prod, so backups are the only undo for data loss.
+   Keep `OPENAI_API_KEY` if the user has one; without it, guesses just don't cluster.
+
+4. **Admin login** for `/debug`: create a user in local Studio (http://localhost:54323 → Authentication → Add user). It exists only in the local database.
+
+5. **Verify:** `make dev`, open http://localhost:7300, sign in at `/login`, and start a game from `/debug`.
+
+Day to day: `make db-reset` rebuilds the database from the migrations, wiping local data. `make db-up` applies only new migrations and keeps the data. `make db-stop` stops the stack and keeps the data.
+
+## Prod, for debugging only
+
+The prod targets (`db-prod-migrations`, `db-query`, `db-advisors`, `db-repair`) need the CLI logged in and linked, once per machine:
+
+1. `make db-login` opens a browser, so ask the user to run it.
+2. `make db-link ref=<project-ref>`. The ref is the 20-letter id in the dashboard URL. If it asks for the database password, the user types it; never paste it into the chat.
+
+The link lives in `supabase/.temp/`, which is gitignored.
+
+## Deploy secrets (once per repo)
+
+The deploy workflow needs three secrets in the GitHub environment `production` (Settings → Environments): `SUPABASE_ACCESS_TOKEN` (a personal access token), `SUPABASE_DB_PASSWORD` and `SUPABASE_PROJECT_ID` (the project ref). Only the user can add them.
 
 ## If something fails
 
-- `make db-status` asks for a password or fails on permissions: set `SUPABASE_DB_PASSWORD` in the user's shell (not in a committed file) and retry.
+- Port already in use: another Supabase project is running. `npm exec -- supabase stop --project-id <other>` or stop it in Docker.
 - Anything else: use the `supabase-triage` skill.
