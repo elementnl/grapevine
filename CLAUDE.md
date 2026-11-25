@@ -22,7 +22,7 @@ Dependencies: `npm install <pkg>` / `npm install -D <pkg>` is the one npm comman
 
 - Next.js 16 (App Router, Cache Components on) and React 19, TypeScript strict. This Next.js version differs from older training data; check `node_modules/next/dist/docs/` before using an API you're unsure of.
 - Tailwind CSS v4, configured in `src/app/globals.css` (no `tailwind.config`).
-- Supabase Postgres + pgvector, production only (no local stack, no Docker). See Database below.
+- Supabase Postgres + pgvector: a local stack in Docker for development, production on Supabase. See Database below.
 - Vitest for unit tests, ESLint (Next.js config) and Prettier (with the Tailwind class-sorting plugin).
 - Deployed on Vercel.
 
@@ -49,23 +49,22 @@ supabase/         migrations
 
 ## Database
 
-There is one database: Supabase production. Migrations are timestamped SQL files in `supabase/migrations/`, applied with the Supabase CLI, which records each applied version in `supabase_migrations.schema_migrations` so it runs only once. All of it goes through `make db-*` targets, and these project skills cover the workflows:
+Development runs against a local Supabase stack in Docker (`make db-start`), built from the timestamped SQL migrations in `supabase/migrations/`. Prod changes only by merging: the Database check applies every migration to a fresh database on each PR, and the Deploy database workflow applies new ones to prod when they reach `main`. The Supabase CLI records each applied version in `supabase_migrations.schema_migrations`, so it runs only once. All of it goes through `make db-*` targets, and these project skills cover the workflows:
 
-- `supabase-setup`: log in and link a machine to the project
-- `supabase-migration-create`: write a migration
-- `supabase-migration-apply`: dry-run, push to prod, regenerate types
-- `supabase-triage`: failed pushes, history drift, runtime database errors
+- `supabase-setup`: the local stack, `.env.local`, and linking a machine to prod for debugging
+- `supabase-migration`: write a migration, test it locally, ship it through a PR
+- `supabase-triage`: failed checks or deploys, history drift, runtime database errors
 
-Migration hygiene (non-negotiable, because every migration runs straight on prod):
+Migration hygiene (non-negotiable, because merging runs every migration on prod, and CI only tests on an empty database):
 
 - **Wrap every migration in `begin;` … `commit;`** so a failure rolls back the whole file. The only exception is a statement that can't run in a transaction (`create index concurrently`); it goes alone in its own migration.
-- **Every migration is idempotent:** running it twice succeeds and changes nothing the second time. Use `if not exists` / `if exists`, `create or replace`, `on conflict do nothing`, `drop ... if exists` before re-creating policies and constraints, and `do $$ ... exception when duplicate_object` for enum types. The full table of patterns is in the `supabase-migration-create` skill.
+- **Every migration is idempotent:** running it twice succeeds and changes nothing the second time. Use `if not exists` / `if exists`, `create or replace`, `on conflict do nothing`, `drop ... if exists` before re-creating policies and constraints, and `do $$ ... exception when duplicate_object` for enum types. The full table of patterns is in the `supabase-migration` skill.
 - **One logical change per migration**, named for what it does (`make db-migration name=add_guess_count_to_nodes`).
-- **Never edit a migration that has been applied** (`make db-status` shows which). Write a new one.
+- **Never edit a migration once it's merged** (`make db-prod-migrations` shows what prod has). Write a new one.
 - **Additive first:** add nullable or defaulted columns, backfill, tighten later. Drops, truncates and data-losing type changes need explicit sign-off.
 - **Enable RLS on every new `public` table.** The app connects only from `src/server` with the Supabase secret key, which bypasses RLS.
-- **Schema changes only through migration files.** Never through `make db-query`, the dashboard SQL editor or the Supabase MCP (which is configured read-only).
-- **Never push to prod without the user's explicit yes** for that push. Then commit the regenerated `src/types/database.ts` with the migration.
+- **Schema changes only through migration files.** Never through the dashboard SQL editor or the Supabase MCP (which is configured read-only); `make db-query` is read-only on prod.
+- **Merging is the deploy.** Never push migrations to prod from a laptop. Commit the migration with `src/types/database.ts` regenerated from the local database (`make db-reset db-types`), and flag anything destructive in the PR description: the review is the approval.
 - **No real seeds, user data or secrets in migrations.** The repo is public.
 
 ## Code style
@@ -83,7 +82,7 @@ Anyone can read every file and every commit, forever. So:
 - **Never commit secrets.** API keys and connection strings live in Vercel env vars and an untracked `.env.local` (`.env*` is gitignored).
 - **Never commit real seeds or starter drawings.** They are the answers to the game. They live only in the database, entered through the admin page. Tests, fixtures and scripts use made-up seeds; the examples in the spec (SpongeBob, Squirtle, turtle car) are burned and must not be used as real seeds.
 - **Server-only code is still public code.** Security can't depend on nobody reading the source: enforce limits on the server, and keep the admin password and any secret moderation tuning in env vars.
-- **CI:** workflows trigger on `pull_request` with read-only permissions and no secrets. Never use `pull_request_target`, and never expose secrets to workflows that fork PRs can trigger.
+- **CI:** workflows trigger on `pull_request` with read-only permissions and no secrets. Never use `pull_request_target`, and never expose secrets to workflows that fork PRs can trigger. The one exception is `deploy-database.yml`: it runs only on pushes to `main`, and its Supabase secrets live in the GitHub `production` environment.
 
 ## Git
 

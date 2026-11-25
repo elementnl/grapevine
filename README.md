@@ -20,15 +20,19 @@ nvm use
 make install
 ```
 
+Start the local database (needs Docker running; the first start downloads images):
+
+```bash
+make db-start
+make db-status   # prints the local URL and keys
+```
+
 Copy `.env.example` to `.env.local` and set:
 
-- `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from the Supabase project settings. Keep the secret key private; it is server-only, bypasses row-level security, and must never use a `NEXT_PUBLIC_` prefix.
-- `SUPABASE_PUBLISHABLE_KEY` from the project's API settings. This key is used only by the server-side Supabase Auth client.
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY` from `make db-status`. The secret key is server-only, bypasses row-level security, and must never use a `NEXT_PUBLIC_` prefix. Vercel holds the prod values.
 - `OPENAI_API_KEY` for guess clustering (embeddings). Server-only. Without it the game still works, and every guess starts its own cluster.
 
-Create the database schema with the migration under `supabase/migrations/` before calling the game API.
-
-Set the required server-side Supabase variables in Vercel for the environments where the app should connect to Supabase.
+For the admin pages (`/debug`), create a user in local Studio at http://localhost:54323 (Authentication → Add user).
 
 ```bash
 make dev
@@ -86,52 +90,47 @@ The rule that matters: **logic lives in `src/server`, never in the browser.** Se
 
 ## Database
 
-We run against the **production** Supabase project only: no local Supabase stack, no Docker. Schema changes are timestamped SQL migrations in `supabase/migrations/`, applied with the Supabase CLI (a dev dependency). The CLI records every applied migration in the `supabase_migrations.schema_migrations` table on prod, so each one runs exactly once.
-
-**One-time setup per machine**
-
-```bash
-make db-login
-make db-link ref=<project-ref>
-```
-
-The project ref is the id in the dashboard URL. The link is stored in `supabase/.temp/`, which is gitignored.
+Development runs against a **local Supabase stack in Docker**, built from the timestamped SQL migrations in `supabase/migrations/`. Prod changes only by merging: nobody pushes migrations from a laptop.
 
 **Making a schema change**
 
 ```bash
 make db-migration name=add_guess_count_to_nodes   # creates supabase/migrations/<timestamp>_add_guess_count_to_nodes.sql
-make db-status                                     # local files vs what prod has applied
-make db-push-dry                                   # what a push would run
-make db-push                                       # apply pending migrations to prod
+make db-reset                                      # rebuild the local database from every migration
 make db-types                                      # regenerate src/types/database.ts
 ```
 
-Commit the migration and the regenerated types together.
+Commit the migration and the regenerated types together, and open a PR.
+
+- **On every PR**, the Database check applies every migration to a fresh database and fails if `src/types/database.ts` doesn't match. It uses no secrets.
+- **On merge to `main`**, the Deploy database workflow applies the new migrations to prod with `supabase db push`. Its secrets (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD`, `SUPABASE_PROJECT_ID`) live in the GitHub `production` environment.
 
 **Migration rules**
 
 - Wrap every migration in `begin;` … `commit;` so a failure rolls back the whole file.
 - Every migration is idempotent: `if not exists`, `create or replace`, `on conflict do nothing` and friends, so running it twice is harmless.
-- Never edit a migration that's already applied; write a new one.
-- Prefer additive changes; drops and data-losing changes get a second pair of eyes.
+- Never edit a migration once it's merged; write a new one.
+- Prefer additive changes. CI tests on an empty database, so only prod finds data problems; drops and data-losing changes get a second pair of eyes.
 - Schema changes only through migrations, never the dashboard SQL editor.
 - No real seeds or user data in migrations; this repo is public.
 
-| Command                                   | What it does                                                 |
-| ----------------------------------------- | ------------------------------------------------------------ |
-| `make db-login`                           | Log the Supabase CLI in                                      |
-| `make db-link ref=<ref>`                  | Link this checkout to the prod project                       |
-| `make db-migration name=<name>`           | Create an empty timestamped migration                        |
-| `make db-status`                          | Local migrations vs applied on prod                          |
-| `make db-push-dry`                        | Show what `db-push` would apply                              |
-| `make db-push`                            | Apply pending migrations to prod                             |
-| `make db-repair version=<ts> status=<s>`  | Mark a migration `applied` or `reverted` in history (no SQL) |
-| `make db-types`                           | Regenerate `src/types/database.ts`                           |
-| `make db-query sql="..."` / `file=<path>` | Run a SQL query on prod (for reads and debugging)            |
-| `make db-advisors`                        | Security and performance checks on prod                      |
+| Command                                    | What it does                                                     |
+| ------------------------------------------ | ---------------------------------------------------------------- |
+| `make db-start` / `make db-stop`           | Start or stop the local stack (Studio: http://localhost:54323)   |
+| `make db-status`                           | The local stack's URLs and keys                                  |
+| `make db-reset`                            | Rebuild the local database from every migration (wipes data)     |
+| `make db-up`                               | Apply only new migrations locally, keeping data                  |
+| `make db-migration name=<name>`            | Create an empty timestamped migration                            |
+| `make db-types`                            | Regenerate `src/types/database.ts` from the local database       |
+| `make db-check`                            | What the CI check runs                                           |
+| `make db-deploy`                           | What the deploy workflow runs (CI only)                          |
+| `make db-login` / `make db-link ref=<ref>` | Connect the CLI to prod, once per machine, for the targets below |
+| `make db-prod-migrations`                  | Migration files next to what prod has applied                    |
+| `make db-query sql="..."` / `file=<path>`  | A read-only SQL query on prod                                    |
+| `make db-advisors`                         | Security and performance checks on prod                          |
+| `make db-repair version=<ts> status=<s>`   | Emergencies: mark a migration applied or reverted on prod        |
 
-**Claude Code** has project skills in `.claude/skills/` for these workflows: `supabase-setup`, `supabase-migration-create`, `supabase-migration-apply` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
+**Claude Code** has project skills in `.claude/skills/` for these workflows: `supabase-setup`, `supabase-migration` and `supabase-triage`. `.mcp.json` adds the Next.js dev-tools, Supabase (read-only) and Vercel MCP servers.
 
 ## Conventions
 

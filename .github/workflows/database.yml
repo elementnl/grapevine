@@ -1,0 +1,32 @@
+name: Database
+
+# Applies every migration to a fresh local database and checks that
+# src/types/database.ts matches. No secrets: it never touches prod.
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "src/types/database.ts"
+      - "Makefile"
+      - ".github/workflows/database.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - "src/types/database.ts"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  migrations:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: make db-check
